@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtualenvs
+venv*/
+.venv/
+
+# Build outputs
+release/
+build/
+dist/
+*.dmg
+*.app/
+*.spec.bak
+
+# Runtime binaries are downloaded by scripts/fetch_runtime_*
+runtime/**/*
+!runtime/**/
+!runtime/**/.gitkeep
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Local config
+.env

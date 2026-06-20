@@ -1,0 +1,5 @@
+Pillow>=10
+pystray>=0.19
+certifi>=2024
+pyobjc-framework-Cocoa>=10; sys_platform == "darwin"
+pyinstaller>=6.0
