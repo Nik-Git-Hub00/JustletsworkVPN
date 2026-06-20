@@ -100,7 +100,6 @@ release/WorkVPN-Setup-<version>-windows-arm64.exe
 
 macOS builds create both zip and DMG artifacts. The zip contains `WorkVPN.app`; the DMG contains `WorkVPN.app`, an Applications shortcut, and the install background. `sing-box` is bundled inside the app. Windows zips contain only `WorkVPN.exe`; `sing-box.exe` and `libcronet.dll` are bundled into the onefile executable by PyInstaller.
 
-
 ## GitHub release workflow
 
 Release builds are handled by `.github/workflows/release.yml`.
@@ -116,4 +115,4 @@ If there are no existing `v*.*.*` tags, the first automatic release is `v1.0.0`.
 
 The workflow uploads macOS zip/DMG artifacts and Windows zip/setup artifacts to the GitHub Release.
 
-Windows setup installers are built with Inno Setup. They install to `C:\Program Files\WorkVPN`, create a Desktop shortcut by default, do not request a reboot, offer an optional `Запустить WorkVPN` checkbox after installation, and remove `%LOCALAPPDATA%\WorkVPN` during uninstall.
+Windows setup installers are built with Inno Setup. They install to `C:\Program Files\WorkVPN`, create a Desktop shortcut by default, do not request a reboot, offer an optional `Launch WorkVPN` checkbox after installation, and remove `%LOCALAPPDATA%\WorkVPN` during uninstall.
