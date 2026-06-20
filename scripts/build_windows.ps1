@@ -3,6 +3,7 @@ Set-Location (Split-Path -Parent $PSScriptRoot)
 
 $Python = if ($env:PYTHON) { $env:PYTHON } else { "python" }
 $VenvPython = Join-Path "venv" "Scripts/python.exe"
+$Version = if ($env:APP_VERSION) { $env:APP_VERSION } else { (Get-Content "VERSION" -First 1).Trim() }
 
 if (-not (Test-Path $VenvPython)) {
     & $Python -c "import sys; sys.exit('Python 3.11+ is required') if sys.version_info < (3, 11) else None"
@@ -28,3 +29,11 @@ New-Item -ItemType Directory -Force $StageDir | Out-Null
 Copy-Item "dist/WorkVPN.exe" $StageDir
 Compress-Archive -Path (Join-Path $StageDir "*") -DestinationPath $ZipPath -Force
 Write-Host "Release: $ZipPath"
+
+$Iscc = if ($env:ISCC) { $env:ISCC } else { "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" }
+if (Test-Path $Iscc) {
+    & $Iscc "installer\WorkVPN.iss" "/DAppVersion=$Version" "/DAppArch=amd64" "/DSourceExe=dist\WorkVPN.exe" "/DAppArchMode=x64compatible" "/DOutputDir=release" "/DOutputBaseFilename=WorkVPN-Setup-$Version-windows-amd64"
+    Write-Host "Release: release\WorkVPN-Setup-$Version-windows-amd64.exe"
+} else {
+    Write-Host "Inno Setup not found, skipping setup build: $Iscc"
+}
