@@ -35,3 +35,4 @@ mkdir -p release
 rm -f release/WorkVPN-macos-x64.zip
 ditto -c -k --keepParent "dist/WorkVPN.app" "release/WorkVPN-macos-x64.zip"
 echo "Release: release/WorkVPN-macos-x64.zip"
+./scripts/package_macos_dmg.sh macos-x64

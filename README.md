@@ -87,9 +87,11 @@ Build outputs are copied to `release/` as zip archives:
 
 ```text
 release/WorkVPN-macos-arm64.zip
+release/WorkVPN-macos-arm64.dmg
 release/WorkVPN-macos-x64.zip
+release/WorkVPN-macos-x64.dmg
 release/WorkVPN-windows-amd64.zip
 release/WorkVPN-windows-arm64.zip
 ```
 
-macOS zips contain `WorkVPN.app`; `sing-box` is already bundled inside it. Windows zips contain only `WorkVPN.exe`; `sing-box.exe` and `libcronet.dll` are bundled into the onefile executable by PyInstaller.
+macOS builds create both zip and DMG artifacts. The zip contains `WorkVPN.app`; the DMG contains `WorkVPN.app`, an Applications shortcut, and the install background. `sing-box` is bundled inside the app. Windows zips contain only `WorkVPN.exe`; `sing-box.exe` and `libcronet.dll` are bundled into the onefile executable by PyInstaller.
