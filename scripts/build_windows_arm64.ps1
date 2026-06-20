@@ -5,7 +5,7 @@ $Python = if ($env:PYTHON) { $env:PYTHON } else { "python" }
 $VenvPython = Join-Path "venv" "Scripts/python.exe"
 
 if (-not (Test-Path $VenvPython)) {
-    & $Python -c "import sys; raise SystemExit('Python 3.11+ is required') if sys.version_info < (3, 11) else None"
+    & $Python -c "import sys; sys.exit('Python 3.11+ is required') if sys.version_info < (3, 11) else None"
     & $Python -m venv venv
 }
 
