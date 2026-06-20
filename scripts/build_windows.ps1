@@ -32,7 +32,10 @@ Write-Host "Release: $ZipPath"
 
 $Iscc = if ($env:ISCC) { $env:ISCC } else { "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" }
 if (Test-Path $Iscc) {
-    & $Iscc "installer\WorkVPN.iss" "/DAppVersion=$Version" "/DAppArch=amd64" "/DSourceExe=dist\WorkVPN.exe" "/DAppArchMode=x64compatible" "/DOutputDir=release" "/DOutputBaseFilename=WorkVPN-Setup-$Version-windows-amd64"
+    $SourceExe = (Resolve-Path "dist\WorkVPN.exe").Path
+    $OutputDir = (Resolve-Path $ReleaseDir).Path
+    & $Iscc "installer\WorkVPN.iss" "/DAppVersion=$Version" "/DAppArch=amd64" "/DSourceExe=$SourceExe" "/DAppArchMode=x64compatible" "/DOutputDir=$OutputDir" "/DOutputBaseFilename=WorkVPN-Setup-$Version-windows-amd64"
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     Write-Host "Release: release\WorkVPN-Setup-$Version-windows-amd64.exe"
 } else {
     Write-Host "Inno Setup not found, skipping setup build: $Iscc"

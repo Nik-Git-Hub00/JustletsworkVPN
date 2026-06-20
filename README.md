@@ -76,6 +76,8 @@ Windows ARM64:
 ./scripts/build_windows_arm64.ps1
 ```
 
+For manual Windows setup installer builds, install Inno Setup 6 first. Without it, the scripts still build the portable zip/onefile exe and skip the setup `.exe`.
+
 On Windows you can also choose a specific Python:
 
 ```powershell
