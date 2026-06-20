@@ -10,6 +10,7 @@ Clean workspace for the WorkVPN desktop client.
 - `src/workvpn/platform/win_app.py` - Windows GUI/process implementation.
 - `assets/` - shared UI assets and icons.
 - `runtime/` - architecture folders for sing-box runtime files. Binaries are not committed.
+- `installer/` - Inno Setup script for Windows setup installers.
 - `specs/` - PyInstaller specs for workers.
 - `scripts/` - setup/build/fetch helpers.
 
@@ -100,6 +101,22 @@ release/WorkVPN-Setup-<version>-windows-arm64.exe
 
 macOS builds create both zip and DMG artifacts. The zip contains `WorkVPN.app`; the DMG contains `WorkVPN.app`, an Applications shortcut, and the install background. `sing-box` is bundled inside the app. Windows zips contain only `WorkVPN.exe`; `sing-box.exe` and `libcronet.dll` are bundled into the onefile executable by PyInstaller.
 
+
+## Windows installer
+
+The Windows setup installers are built with Inno Setup 6 from `installer/WorkVPN.iss`.
+
+Installer behavior:
+
+- installs to `C:\Program Files\WorkVPN`;
+- creates a Desktop shortcut by default;
+- does not request a Windows reboot after installation;
+- shows an optional `Launch WorkVPN` checkbox after installation;
+- launches WorkVPN from the installer with the current elevated user context;
+- removes `%LOCALAPPDATA%\WorkVPN` during uninstall.
+
+If Inno Setup 6 is not installed during a manual Windows build, the build script skips the setup `.exe` and still creates the portable zip/onefile exe artifact.
+
 ## GitHub release workflow
 
 Release builds are handled by `.github/workflows/release.yml`.
@@ -115,4 +132,3 @@ If there are no existing `v*.*.*` tags, the first automatic release is `v1.0.0`.
 
 The workflow uploads macOS zip/DMG artifacts and Windows zip/setup artifacts to the GitHub Release.
 
-Windows setup installers are built with Inno Setup. They install to `C:\Program Files\WorkVPN`, create a Desktop shortcut by default, do not request a reboot, offer an optional `Launch WorkVPN` checkbox after installation, and remove `%LOCALAPPDATA%\WorkVPN` during uninstall.
