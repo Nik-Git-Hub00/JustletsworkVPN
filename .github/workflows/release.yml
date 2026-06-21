@@ -133,6 +133,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -146,8 +148,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          commit_hash="$(git log -1 --format='%h')"
+          commit_subject="$(git log -1 --format='%s')"
+          commit_body="$(git log -1 --format='%b')"
+
+          {
+            echo "Automatic WorkVPN $VERSION build"
+            echo
+            echo "### Latest commit"
+            echo "- \`$commit_hash\` $commit_subject"
+            if [[ -n "$commit_body" ]]; then
+              echo
+              echo "$commit_body"
+            fi
+          } > release_notes.md
+
           gh release create "$TAG" artifacts/* \
             --repo "$GH_REPO" \
             --title "WorkVPN $VERSION" \
-            --notes "Automatic WorkVPN $VERSION build" \
+            --notes-file release_notes.md \
             --latest

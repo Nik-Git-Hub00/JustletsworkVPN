@@ -1037,6 +1037,7 @@ def set_windows_app_id():
 
 def install_text_shortcuts(root):
     # Physical keycodes keep Cmd/Ctrl+C/V/X/A working with non-Latin layouts.
+    shortcut_tag = "WorkVPNTextShortcuts"
     mac_keycodes = {8: "copy", 9: "paste", 7: "cut", 0: "select_all"}
     win_keycodes = {67: "copy", 86: "paste", 88: "cut", 65: "select_all"}
     char_actions = {
@@ -1046,9 +1047,21 @@ def install_text_shortcuts(root):
         "a": "select_all", "ф": "select_all",
     }
 
-    def focused_text_widget():
-        widget = root.focus_get()
-        return widget if isinstance(widget, (tk.Entry, tk.Text)) else None
+    def is_text_widget(widget):
+        return isinstance(widget, (tk.Entry, tk.Text))
+
+    def attach(widget):
+        if not is_text_widget(widget):
+            return
+        tags = widget.bindtags()
+        if shortcut_tag in tags:
+            return
+        widget.bindtags((tags[0], shortcut_tag, *tags[1:]))
+
+    def attach_tree(widget):
+        attach(widget)
+        for child in widget.winfo_children():
+            attach_tree(child)
 
     def select_all(widget):
         if isinstance(widget, tk.Entry):
@@ -1060,11 +1073,10 @@ def install_text_shortcuts(root):
             widget.see(tk.INSERT)
 
     def handle(event):
-        widget = focused_text_widget()
-        if widget is None:
+        widget = event.widget
+        if not is_text_widget(widget):
             return None
 
-        modifier_pressed = False
         if sys.platform == "darwin":
             modifier_pressed = bool(event.state & 0x8) or bool(event.state & 0x10)
             action = mac_keycodes.get(event.keycode)
@@ -1088,11 +1100,13 @@ def install_text_shortcuts(root):
                 widget.event_generate("<<Cut>>")
             elif action == "select_all":
                 select_all(widget)
-            return "break"
         except tk.TclError:
-            return "break"
+            pass
+        return "break"
 
-    root.bind_all("<KeyPress>", handle, add="+")
+    root.bind_class(shortcut_tag, "<KeyPress>", handle)
+    root.bind_all("<FocusIn>", lambda event: attach(event.widget), add="+")
+    root.after_idle(lambda: attach_tree(root))
 
 
 class PrettyButton(tk.Frame):
