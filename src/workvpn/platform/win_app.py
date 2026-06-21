@@ -1035,6 +1035,66 @@ def set_windows_app_id():
         pass
 
 
+def install_text_shortcuts(root):
+    # Physical keycodes keep Cmd/Ctrl+C/V/X/A working with non-Latin layouts.
+    mac_keycodes = {8: "copy", 9: "paste", 7: "cut", 0: "select_all"}
+    win_keycodes = {67: "copy", 86: "paste", 88: "cut", 65: "select_all"}
+    char_actions = {
+        "c": "copy", "с": "copy",
+        "v": "paste", "м": "paste",
+        "x": "cut", "ч": "cut",
+        "a": "select_all", "ф": "select_all",
+    }
+
+    def focused_text_widget():
+        widget = root.focus_get()
+        return widget if isinstance(widget, (tk.Entry, tk.Text)) else None
+
+    def select_all(widget):
+        if isinstance(widget, tk.Entry):
+            widget.selection_range(0, tk.END)
+            widget.icursor(tk.END)
+        else:
+            widget.tag_add(tk.SEL, "1.0", tk.END)
+            widget.mark_set(tk.INSERT, "1.0")
+            widget.see(tk.INSERT)
+
+    def handle(event):
+        widget = focused_text_widget()
+        if widget is None:
+            return None
+
+        modifier_pressed = False
+        if sys.platform == "darwin":
+            modifier_pressed = bool(event.state & 0x8) or bool(event.state & 0x10)
+            action = mac_keycodes.get(event.keycode)
+        else:
+            modifier_pressed = bool(event.state & 0x4) or bool(event.state & 0x8)
+            action = win_keycodes.get(event.keycode)
+
+        if not modifier_pressed:
+            return None
+
+        action = action or char_actions.get((event.char or "").lower()) or char_actions.get((event.keysym or "").lower())
+        if action is None:
+            return None
+
+        try:
+            if action == "copy":
+                widget.event_generate("<<Copy>>")
+            elif action == "paste":
+                widget.event_generate("<<Paste>>")
+            elif action == "cut":
+                widget.event_generate("<<Cut>>")
+            elif action == "select_all":
+                select_all(widget)
+            return "break"
+        except tk.TclError:
+            return "break"
+
+    root.bind_all("<KeyPress>", handle, add="+")
+
+
 class PrettyButton(tk.Frame):
     def __init__(self, parent, text, command, bg_color, hover_color, width_chars=20):
         super().__init__(parent, bg=bg_color, cursor="hand2", highlightthickness=1, highlightbackground="#22324a", bd=0)
@@ -1278,6 +1338,7 @@ class SingBoxGUI:
         self.power_size = self.clamp_px(108, 96, 120)
         self.center_window()
         self.build_ui()
+        install_text_shortcuts(self.root)
         self.register_windows_window_handlers()
         self.root.after(250, lambda: apply_window_icon(self.root))
         self.root.after(100, self.process_tray_actions)
