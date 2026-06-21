@@ -78,6 +78,13 @@ macOS:
 ./scripts/build_macos_intel_from_arm.sh  # Intel build from Apple Silicon via Rosetta
 ```
 
+Linux native architecture:
+
+```bash
+./scripts/build_linux.sh
+./scripts/package_linux.sh
+```
+
 Windows x64:
 
 ```powershell
@@ -88,13 +95,6 @@ Windows ARM64:
 
 ```powershell
 ./scripts/build_windows_arm64.ps1
-```
-
-Linux native architecture:
-
-```bash
-./scripts/build_linux.sh
-./scripts/package_linux.sh
 ```
 
 For manual Windows setup installer builds, install Inno Setup 6 first. Without it, the scripts still build the portable zip/onefile exe and skip the setup `.exe`.
@@ -113,19 +113,19 @@ release/WorkVPN-macos-arm64.zip
 release/WorkVPN-macos-arm64.dmg
 release/WorkVPN-macos-x64.zip
 release/WorkVPN-macos-x64.dmg
-release/WorkVPN-windows-amd64.zip
-release/WorkVPN-Setup-<version>-windows-amd64.exe
-release/WorkVPN-windows-arm64.zip
-release/WorkVPN-Setup-<version>-windows-arm64.exe
 release/WorkVPN-linux-amd64.tar.gz
 release/WorkVPN-<version>-linux-amd64.deb
 release/WorkVPN-<version>-linux-amd64.rpm
 release/WorkVPN-linux-arm64.tar.gz
 release/WorkVPN-<version>-linux-arm64.deb
 release/WorkVPN-<version>-linux-arm64.rpm
+release/WorkVPN-windows-amd64.zip
+release/WorkVPN-Setup-<version>-windows-amd64.exe
+release/WorkVPN-windows-arm64.zip
+release/WorkVPN-Setup-<version>-windows-arm64.exe
 ```
 
-macOS builds create both zip and DMG artifacts. The zip contains `WorkVPN.app`; the DMG contains `WorkVPN.app`, an Applications shortcut, and the install background. `sing-box` is bundled inside the app. Windows zips contain only `WorkVPN.exe`; `sing-box.exe` and `libcronet.dll` are bundled into the onefile executable by PyInstaller. Linux builds create a portable tar.gz plus deb/rpm packages for amd64 and arm64.
+macOS builds create both zip and DMG artifacts. The zip contains `WorkVPN.app`; the DMG contains `WorkVPN.app`, an Applications shortcut, and the install background. `sing-box` is bundled inside the app. Linux builds create a portable tar.gz plus deb/rpm packages for amd64 and arm64. Windows zips contain only `WorkVPN.exe`; `sing-box.exe` and `libcronet.dll` are bundled into the onefile executable by PyInstaller.
 
 ## Linux CLI
 
