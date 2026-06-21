@@ -101,8 +101,8 @@ def find_runtime_sing_box() -> Path:
 def normalize_server_url(value: str) -> str:
     value = (value or "").strip()
     parsed = urlparse(value)
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        raise SystemExit("Invalid URL. Use http:// or https://")
+    if parsed.scheme != "https" or not parsed.netloc:
+        raise SystemExit("Invalid URL. Use https://")
     if value.endswith("/"):
         return urljoin(value, CONFIG_NAME)
     if parsed.path.endswith(CONFIG_NAME):
@@ -124,6 +124,8 @@ def ssl_context():
 
 
 def http_get(url: str, timeout: float = 12.0) -> str:
+    if urlparse(url).scheme != "https":
+        raise SystemExit("Refusing to fetch over a non-HTTPS URL.")
     request = urllib.request.Request(url, headers={"User-Agent": CUSTOM_USER_AGENT})
     with urllib.request.urlopen(request, timeout=timeout, context=ssl_context()) as response:
         charset = response.headers.get_content_charset() or "utf-8"

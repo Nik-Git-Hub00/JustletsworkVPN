@@ -108,7 +108,7 @@ I18N = {
         "uuid_token": "UUID токен",
         "server_url": "URL сервера",
         "invalid_uuid": "Введите корректный UUID.",
-        "invalid_url": "Введите корректный URL сервера: http:// или https://",
+        "invalid_url": "Введите корректный URL сервера: https://",
         "save": "Сохранить",
         "cancel": "Отмена",
         "token_saved_log": "Токен и URL сервера сохранены.\n",
@@ -217,7 +217,7 @@ I18N = {
         "uuid_token": "UUID token",
         "server_url": "Server URL",
         "invalid_uuid": "Enter a valid UUID.",
-        "invalid_url": "Enter a valid server URL: http:// or https://",
+        "invalid_url": "Enter a valid server URL: https://",
         "save": "Save",
         "cancel": "Cancel",
         "token_saved_log": "Token and server URL saved.\n",
@@ -489,6 +489,8 @@ def make_request(url: str):
 
 
 def download_file(url: str, target_path: Path) -> Path:
+    if urlparse(url).scheme != "https":
+        raise ValueError("Refusing to download config over a non-HTTPS URL.")
     ctx = ssl_context()
     if ctx:
         with urllib.request.urlopen(make_request(url), timeout=20, context=ctx) as response:
@@ -1703,7 +1705,7 @@ class SingBoxGUI:
     @staticmethod
     def is_valid_config_url(config_url: str) -> bool:
         parsed = urlparse(config_url.strip())
-        return parsed.scheme in ("http", "https") and bool(parsed.netloc) and not parsed.query and not parsed.fragment
+        return parsed.scheme == "https" and bool(parsed.netloc) and not parsed.query and not parsed.fragment
 
     def ask_token_dialog(self, initial_token="", initial_url=""):
         dialog = tk.Toplevel(self.root)
