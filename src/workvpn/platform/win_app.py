@@ -1,4 +1,5 @@
 import json
+import locale
 import math
 import os
 import platform
@@ -35,11 +36,260 @@ except Exception:
 
 
 CUSTOM_USER_AGENT = "SingBoxVPN-Client/1.0-private"
+
+
+def detect_language() -> str:
+    try:
+        candidates = []
+        for getter in (locale.getlocale, locale.getdefaultlocale):
+            try:
+                value = getter()[0]
+            except Exception:
+                value = None
+            if value:
+                candidates.append(value)
+        for env_name in ("LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG"):
+            value = os.environ.get(env_name)
+            if value:
+                candidates.append(value)
+        return "ru" if any(str(value).lower().startswith("ru") for value in candidates) else "en"
+    except Exception:
+        return "en"
+
+
+LANG = detect_language()
+
+I18N = {
+    "ru": {
+        "config_download_error": "Не удалось скачать конфиг. Проверьте правильность URL и учётных данных.",
+        "vpn_verify_error": "Не удалось подтвердить VPN-подключение. Проверьте UUID.",
+        "vpn_verify_error_win": "VPN запустился, но внешний IP не изменился. Проверьте UUID или доступность сервера.",
+        "vpn_start_error_win": "Windows не смог создать VPN-интерфейс. Попробуйте подключить ещё раз.",
+        "singbox_check": "Проверка sing-box check...\n",
+        "singbox_check_ok": "Проверка sing-box config: OK\n",
+        "singbox_check_error": "Проверка sing-box config: ошибка\n",
+        "config_check_exception": "Ошибка проверки config.json: {error}\n",
+        "download_config": "Скачивание config.json: {url}\n",
+        "download_config_attempt": "Скачивание config.json, попытка {attempt}/{total}...\n",
+        "config_ready": "config.json скачан, UUID вставлен и применён.\n",
+        "config_prepare_error": "Ошибка подготовки config.json: {error}\n",
+        "soft_stop": "Отправляю sing-box мягкую остановку...\n",
+        "ctrl_break_fallback": "sing-box не завершился после Ctrl+Break, пробую обычную остановку...\n",
+        "ctrl_break_unavailable": "Ctrl+Break недоступен, пробую обычную остановку...\n",
+        "disconnected": "Отключено",
+        "connected": "Подключено",
+        "busy_action": "выполняется действие",
+        "tray_open": "Открыть",
+        "connect": "Подключить",
+        "disconnect": "Отключить",
+        "exit": "Выход",
+        "secure_connection": "Защищенное подключение",
+        "connection_time": "Время подключения",
+        "change_token_url": "Изменить токен или URL",
+        "log": "Лог",
+        "singbox_log": "Лог sing-box",
+        "hide": "Скрыть",
+        "vpn_data": "Данные VPN",
+        "connection_data": "Данные подключения",
+        "enter_uuid_url": "Введите UUID и URL сервера.",
+        "uuid_token": "UUID токен",
+        "server_url": "URL сервера",
+        "invalid_uuid": "Введите корректный UUID.",
+        "invalid_url": "Введите корректный URL сервера: http:// или https://",
+        "save": "Сохранить",
+        "cancel": "Отмена",
+        "token_saved_log": "Токен и URL сервера сохранены.\n",
+        "save_data_error": "Не удалось сохранить данные подключения: {error}\n",
+        "new_data_next_connect": "Новые данные будут применены при следующем подключении.\n",
+        "new_data_connect": "Новые данные будут использованы при подключении.\n",
+        "token_required": "Требуется токен или URL",
+        "checking_config": "Проверка конфига...",
+        "initial_setup": "Первичная настройка...",
+        "checking_vpn": "Проверка VPN...",
+        "connected_ip": "Подключено · IP {ip}",
+        "saved_token_loaded": "Сохранённый токен загружен.\n",
+        "helper_installed": "Helper установлен.\n",
+        "helper_missing": "Helper не установлен. При первом подключении будет один запрос пароля.\n",
+        "vpn_ip": "IP VPN: {ip}",
+        "vpn_ip_checking": "IP VPN: проверяется",
+        "pystray_missing_mac": "pystray не установлен: значок в верхней панели недоступен.\n",
+        "pystray_missing_win": "pystray не установлен: значок в трее недоступен.\n",
+        "tray_icon_error": "Ошибка запуска значка в трее: {error}\n",
+        "error": "Ошибка",
+        "vpn_check_title": "Проверка VPN",
+        "helper_install_required": "Требуется первичная установка helper. Сейчас macOS попросит пароль администратора один раз.\n",
+        "helper_install_error": "Ошибка установки helper.\n",
+        "helper_sudo_failed": "Helper установлен, но sudo -n проверка не прошла.\n",
+        "helper_install_success": "Helper успешно установлен. Дальше пароль спрашиваться не должен.\n",
+        "singbox_not_found": "Ошибка: не найден sing-box:\n{path}\n",
+        "file_not_found": "Не найден файл:\n{path}",
+        "config_ok_starting": "Проверка config.json успешна, запускаю VPN клиент...\n",
+        "helper_install_failed_box": "Не удалось установить helper",
+        "before_ip": "IP до подключения",
+        "current_ip": "Текущий IP",
+        "ip_unknown": "{label}: не удалось определить\n",
+        "ip_unknown_error": "{label}: не удалось определить ({error})\n",
+        "checking_active_vpn_ip": "Проверяю IP активного VPN через ident.me...\n",
+        "checking_ident": "Проверка VPN через ident.me...\n",
+        "checking_ident_timeout": "Проверяю внешний IP через ident.me до {timeout} секунд...\n",
+        "service_stopped": "сервис sing-box остановлен",
+        "process_stopped": "процесс sing-box остановлен",
+        "ident_same_retry_mac": "ident.me вернул прежний IP: {ip}. Проверка {count}/{limit}...\n",
+        "ident_same_retry_win": "Текущий IP пока прежний: {ip}. Проверяю ещё до {left} сек.\n",
+        "external_ip_same": "внешний IP не изменился",
+        "external_ip_same_after_start": "внешний IP не изменился после запуска sing-box",
+        "vpn_ip_confirmed": "VPN IP подтверждён: {ip}\n",
+        "ident_empty": "ident.me вернул пустой ответ",
+        "ident_unavailable": "ident.me пока недоступен: {error}\n",
+        "external_ip_failed": "не удалось получить внешний IP",
+        "stop_after_failed_verify": "Останавливаю sing-box после неудачной проверки VPN...\n",
+        "helper_stop_code": "helper stop завершился с кодом {code}\n",
+        "stop_after_verify_error": "Не удалось остановить sing-box после проверки: {error}\n",
+        "start_helper": "Запуск sing-box через helper...\n",
+        "helper_start_error": "Ошибка запуска helper.\n",
+        "singbox_started": "sing-box запущен.\n",
+        "vpn_not_confirmed": "VPN не подтверждён: {reason}\n",
+        "last_ident_ip": "Последний IP от ident.me: {ip}\n",
+        "service_not_confirmed": "Сервис создан, но статус running не подтверждён.\n",
+        "disconnecting": "Отключение...",
+        "stop_helper": "\nОстановка sing-box через helper...\n",
+        "stop_singbox": "\nОстановка sing-box...\n",
+        "service_still_active": "Предупреждение: сервис всё ещё активен.\n",
+        "singbox_stopped": "sing-box остановлен.\n",
+        "exiting": "Выход...",
+        "mac_only": "Этот клиент предназначен для macOS.",
+        "retry_wait": "Жду паузу перед повторным запуском...\n",
+        "start_attempt": "Запуск sing-box, попытка {attempt}/{total}...\n",
+        "start_error": "Ошибка запуска sing-box: {error}\n",
+        "started_check_ip": "sing-box запущен, проверяю внешний IP...\n",
+        "started_exit_code": "sing-box завершился при старте с кодом {code}",
+        "unknown_error": "неизвестная ошибка",
+        "start_failed": "Не удалось запустить sing-box: {error}\n",
+        "read_log_error": "\nОшибка чтения лога: {error}\n",
+        "singbox_exit_code": "\nsing-box завершился с кодом {code}\n",
+        "stop_error": "Ошибка остановки sing-box: {error}\n",
+    },
+    "en": {
+        "config_download_error": "Could not download the config. Check the URL and credentials.",
+        "vpn_verify_error": "Could not verify the VPN connection. Check the UUID.",
+        "vpn_verify_error_win": "VPN started, but the external IP did not change. Check the UUID or server availability.",
+        "vpn_start_error_win": "Windows could not create the VPN interface. Try connecting again.",
+        "singbox_check": "Checking sing-box config...\n",
+        "singbox_check_ok": "sing-box config check: OK\n",
+        "singbox_check_error": "sing-box config check: error\n",
+        "config_check_exception": "config.json check error: {error}\n",
+        "download_config": "Downloading config.json: {url}\n",
+        "download_config_attempt": "Downloading config.json, attempt {attempt}/{total}...\n",
+        "config_ready": "config.json downloaded, UUID inserted and applied.\n",
+        "config_prepare_error": "config.json preparation error: {error}\n",
+        "soft_stop": "Sending graceful stop to sing-box...\n",
+        "ctrl_break_fallback": "sing-box did not stop after Ctrl+Break, trying regular stop...\n",
+        "ctrl_break_unavailable": "Ctrl+Break is unavailable, trying regular stop...\n",
+        "disconnected": "Disconnected",
+        "connected": "Connected",
+        "busy_action": "busy",
+        "tray_open": "Open",
+        "connect": "Connect",
+        "disconnect": "Disconnect",
+        "exit": "Exit",
+        "secure_connection": "Secure connection",
+        "connection_time": "Connection time",
+        "change_token_url": "Change token or URL",
+        "log": "Log",
+        "singbox_log": "sing-box log",
+        "hide": "Hide",
+        "vpn_data": "VPN data",
+        "connection_data": "Connection data",
+        "enter_uuid_url": "Enter UUID and server URL.",
+        "uuid_token": "UUID token",
+        "server_url": "Server URL",
+        "invalid_uuid": "Enter a valid UUID.",
+        "invalid_url": "Enter a valid server URL: http:// or https://",
+        "save": "Save",
+        "cancel": "Cancel",
+        "token_saved_log": "Token and server URL saved.\n",
+        "save_data_error": "Could not save connection data: {error}\n",
+        "new_data_next_connect": "New data will be applied on the next connection.\n",
+        "new_data_connect": "New data will be used when connecting.\n",
+        "token_required": "Token or URL required",
+        "checking_config": "Checking config...",
+        "initial_setup": "Initial setup...",
+        "checking_vpn": "Checking VPN...",
+        "connected_ip": "Connected · IP {ip}",
+        "saved_token_loaded": "Saved token loaded.\n",
+        "helper_installed": "Helper installed.\n",
+        "helper_missing": "Helper is not installed. macOS will ask for the administrator password once on the first connection.\n",
+        "vpn_ip": "VPN IP: {ip}",
+        "vpn_ip_checking": "VPN IP: checking",
+        "pystray_missing_mac": "pystray is not installed: menu bar icon is unavailable.\n",
+        "pystray_missing_win": "pystray is not installed: tray icon is unavailable.\n",
+        "tray_icon_error": "Tray icon startup error: {error}\n",
+        "error": "Error",
+        "vpn_check_title": "VPN check",
+        "helper_install_required": "Initial helper installation required. macOS will ask for the administrator password once.\n",
+        "helper_install_error": "Helper installation error.\n",
+        "helper_sudo_failed": "Helper installed, but sudo -n check failed.\n",
+        "helper_install_success": "Helper installed successfully. Password should not be requested again.\n",
+        "singbox_not_found": "Error: sing-box not found:\n{path}\n",
+        "file_not_found": "File not found:\n{path}",
+        "config_ok_starting": "config.json check passed, starting VPN client...\n",
+        "helper_install_failed_box": "Could not install helper",
+        "before_ip": "IP before connection",
+        "current_ip": "Current IP",
+        "ip_unknown": "{label}: could not determine\n",
+        "ip_unknown_error": "{label}: could not determine ({error})\n",
+        "checking_active_vpn_ip": "Checking active VPN IP through ident.me...\n",
+        "checking_ident": "Checking VPN through ident.me...\n",
+        "checking_ident_timeout": "Checking external IP through ident.me for up to {timeout} seconds...\n",
+        "service_stopped": "sing-box service stopped",
+        "process_stopped": "sing-box process stopped",
+        "ident_same_retry_mac": "ident.me returned the previous IP: {ip}. Check {count}/{limit}...\n",
+        "ident_same_retry_win": "Current IP is still unchanged: {ip}. Checking for {left} more sec.\n",
+        "external_ip_same": "external IP did not change",
+        "external_ip_same_after_start": "external IP did not change after sing-box startup",
+        "vpn_ip_confirmed": "VPN IP confirmed: {ip}\n",
+        "ident_empty": "ident.me returned an empty response",
+        "ident_unavailable": "ident.me is currently unavailable: {error}\n",
+        "external_ip_failed": "could not get external IP",
+        "stop_after_failed_verify": "Stopping sing-box after failed VPN verification...\n",
+        "helper_stop_code": "helper stop exited with code {code}\n",
+        "stop_after_verify_error": "Could not stop sing-box after verification: {error}\n",
+        "start_helper": "Starting sing-box through helper...\n",
+        "helper_start_error": "Helper startup error.\n",
+        "singbox_started": "sing-box started.\n",
+        "vpn_not_confirmed": "VPN was not confirmed: {reason}\n",
+        "last_ident_ip": "Last IP from ident.me: {ip}\n",
+        "service_not_confirmed": "Service was created, but running status was not confirmed.\n",
+        "disconnecting": "Disconnecting...",
+        "stop_helper": "\nStopping sing-box through helper...\n",
+        "stop_singbox": "\nStopping sing-box...\n",
+        "service_still_active": "Warning: service is still active.\n",
+        "singbox_stopped": "sing-box stopped.\n",
+        "exiting": "Exiting...",
+        "mac_only": "This client is intended for macOS.",
+        "retry_wait": "Waiting before retry...\n",
+        "start_attempt": "Starting sing-box, attempt {attempt}/{total}...\n",
+        "start_error": "sing-box startup error: {error}\n",
+        "started_check_ip": "sing-box started, checking external IP...\n",
+        "started_exit_code": "sing-box exited during startup with code {code}",
+        "unknown_error": "unknown error",
+        "start_failed": "Could not start sing-box: {error}\n",
+        "read_log_error": "\nLog read error: {error}\n",
+        "singbox_exit_code": "\nsing-box exited with code {code}\n",
+        "stop_error": "sing-box stop error: {error}\n",
+    },
+}
+
+
+def tr(key: str, **kwargs) -> str:
+    text = I18N.get(LANG, I18N["en"]).get(key, I18N["en"].get(key, key))
+    return text.format(**kwargs) if kwargs else text
+
 UUID_PLACEHOLDER = "__TYPE_UUID__"
 SERVER_CONFIG_FILENAME = "config_universal.json"
-CONFIG_DOWNLOAD_ERROR = "Не удалось скачать конфиг. Проверьте правильность URL и учётных данных."
-VPN_VERIFY_ERROR = "VPN запустился, но внешний IP не изменился. Проверьте UUID или доступность сервера."
-VPN_START_ERROR = "Windows не смог создать VPN-интерфейс. Попробуйте подключить ещё раз."
+CONFIG_DOWNLOAD_ERROR = tr("config_download_error")
+VPN_VERIFY_ERROR = tr("vpn_verify_error_win")
+VPN_START_ERROR = tr("vpn_start_error_win")
 APP_TITLE = "WorkVPN"
 TRAY_ICON_SIZE = 256
 
@@ -381,15 +631,15 @@ def stop_singbox_process(process, log_func=None, timeout=8):
             log_func(message)
 
     if os.name == "nt":
-        log("Отправляю sing-box мягкую остановку...\n")
+        log(tr("soft_stop"))
         if send_windows_ctrl_break(process):
             try:
                 process.wait(timeout=timeout)
                 return
             except subprocess.TimeoutExpired:
-                log("sing-box не завершился после Ctrl+Break, пробую обычную остановку...\n")
+                log(tr("ctrl_break_fallback"))
         else:
-            log("Ctrl+Break недоступен, пробую обычную остановку...\n")
+            log(tr("ctrl_break_unavailable"))
 
     try:
         process.terminate()
@@ -401,7 +651,7 @@ def stop_singbox_process(process, log_func=None, timeout=8):
 
 def validate_singbox_config(config_path: Path, log_func) -> bool:
     try:
-        log_func("Проверка sing-box check...\n")
+        log_func(tr("singbox_check"))
         kwargs = {}
         if os.name == "nt":
             kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
@@ -418,13 +668,13 @@ def validate_singbox_config(config_path: Path, log_func) -> bool:
             **kwargs,
         )
         if result.returncode == 0:
-            log_func("Проверка sing-box config: OK\n")
+            log_func(tr("singbox_check_ok"))
             return True
-        log_func("Проверка sing-box config: ошибка\n")
+        log_func(tr("singbox_check_error"))
         log_func(result.stdout + "\n")
         return False
     except Exception as e:
-        log_func(f"Ошибка проверки config.json: {e}\n")
+        log_func(tr("config_check_exception", error=e))
         return False
 
 
@@ -452,11 +702,11 @@ def replace_uuid_placeholder(value, client_uuid: str) -> tuple[object, int]:
 
 def update_config_from_template(log_func, client_uuid: str, config_url: str) -> bool:
     final_url = build_config_url(config_url)
-    log_func(f"Скачивание config.json: {final_url}\n")
+    log_func(tr("download_config", url=final_url))
     for attempt in range(1, DOWNLOAD_RETRIES + 1):
         tmp_path = None
         try:
-            log_func(f"Скачивание config.json, попытка {attempt}/{DOWNLOAD_RETRIES}...\n")
+            log_func(tr("download_config_attempt", attempt=attempt, total=DOWNLOAD_RETRIES))
             tmp_path = download_file(final_url, CONFIG)
 
             with open(tmp_path, "r", encoding="utf-8") as f:
@@ -477,10 +727,10 @@ def update_config_from_template(log_func, client_uuid: str, config_url: str) -> 
                 tmp_path = None
                 raise RuntimeError("sing-box check failed")
             os.replace(tmp_path, CONFIG)
-            log_func("config.json скачан, UUID вставлен и применён.\n")
+            log_func(tr("config_ready"))
             return True
         except Exception as e:
-            log_func(f"Ошибка подготовки config.json: {e}\n")
+            log_func(tr("config_prepare_error", error=e))
             if tmp_path and tmp_path.exists():
                 try:
                     tmp_path.unlink()
@@ -1003,7 +1253,7 @@ class SingBoxGUI:
         self.root.geometry(f"{self.window_width}x{self.window_height}")
         self.root.minsize(430, 650)
         self.root.resizable(False, False)
-        self.status_var = tk.StringVar(value="Отключено")
+        self.status_var = tk.StringVar(value=tr("disconnected"))
         self.timer_var = tk.StringVar(value="00:00:00")
         self.connection_state = "disconnected"
         self.client_uuid = self.load_saved_token()
@@ -1035,7 +1285,7 @@ class SingBoxGUI:
         self.root.after(250, self.request_token_on_start)
         self.log_safe(f"Bundled sing-box: {SING_BOX}\n")
         if self.client_uuid:
-            self.log_safe("Сохранённый токен загружен.\n")
+            self.log_safe(tr("saved_token_loaded"))
 
     def register_windows_window_handlers(self):
         self.root.protocol("WM_DELETE_WINDOW", self.hide_to_tray)
@@ -1091,36 +1341,36 @@ class SingBoxGUI:
         return self.connection_state == "connected" and bool(self.vpn_ip) and not self.is_exiting
 
     def tray_vpn_ip_text(self, item=None):
-        return f"IP VPN: {self.vpn_ip}" if self.vpn_ip else "IP VPN: проверяется"
+        return tr("vpn_ip", ip=self.vpn_ip) if self.vpn_ip else tr("vpn_ip_checking")
 
     def create_tray(self):
         if pystray is None:
-            self.log_safe("pystray не установлен: значок в трее недоступен.\n")
+            self.log_safe(tr("pystray_missing_win"))
             return
         menu = pystray.Menu(
-            pystray.MenuItem("Открыть", lambda icon, item: self.enqueue_tray_action("show"), default=True),
+            pystray.MenuItem(tr("tray_open"), lambda icon, item: self.enqueue_tray_action("show"), default=True),
             pystray.MenuItem(self.tray_vpn_ip_text, None, enabled=False, visible=self.tray_has_vpn_ip),
-            pystray.MenuItem("Подключить", lambda icon, item: self.enqueue_tray_action("start"), enabled=self.tray_can_start),
-            pystray.MenuItem("Отключить", lambda icon, item: self.enqueue_tray_action("stop"), enabled=self.tray_can_stop),
-            pystray.MenuItem("Выход", lambda icon, item: self.enqueue_tray_action("exit")),
+            pystray.MenuItem(tr("connect"), lambda icon, item: self.enqueue_tray_action("start"), enabled=self.tray_can_start),
+            pystray.MenuItem(tr("disconnect"), lambda icon, item: self.enqueue_tray_action("stop"), enabled=self.tray_can_stop),
+            pystray.MenuItem(tr("exit"), lambda icon, item: self.enqueue_tray_action("exit")),
         )
-        self.tray_icon = pystray.Icon(APP_TITLE, create_tray_image("red"), f"{APP_TITLE} - отключено", menu)
+        self.tray_icon = pystray.Icon(APP_TITLE, create_tray_image("red"), f"{APP_TITLE} - {tr('disconnected').lower()}", menu)
         threading.Thread(target=self.run_tray_icon, daemon=True).start()
 
     def run_tray_icon(self):
         try:
             self.tray_icon.run()
         except Exception as e:
-            self.log_safe(f"Ошибка запуска значка в трее: {e}\n")
+            self.log_safe(tr("tray_icon_error", error=e))
 
     def update_tray_icon(self, color):
         if not self.tray_icon:
             return
         self.tray_icon.icon = create_tray_image(color)
         titles = {
-            "green": f"{APP_TITLE} - подключено",
-            "orange": f"{APP_TITLE} - выполняется действие",
-            "red": f"{APP_TITLE} - отключено",
+            "green": f"{APP_TITLE} - {tr('connected').lower()}",
+            "orange": f"{APP_TITLE} - {tr('busy_action')}",
+            "red": f"{APP_TITLE} - {tr('disconnected').lower()}",
         }
         self.tray_icon.title = titles.get(color, APP_TITLE)
         try:
@@ -1175,13 +1425,13 @@ class SingBoxGUI:
 
         button_height = self.scale_px(44)
         button_font = self.clamp_px(10, 9, 12)
-        self.token_btn = ModernButton(buttons, "Изменить токен или URL", None, self.change_token, width=310, height=button_height, font_size=button_font, icon_file="ui_token.png")
+        self.token_btn = ModernButton(buttons, tr("change_token_url"), None, self.change_token, width=310, height=button_height, font_size=button_font, icon_file="ui_token.png")
         self.token_btn.pack(anchor="center", fill="x", pady=(0, self.scale_px(8)))
-        self.log_btn = ModernButton(buttons, "Лог", None, self.toggle_log_panel, width=310, height=button_height, font_size=button_font, icon_file="ui_log.png")
+        self.log_btn = ModernButton(buttons, tr("log"), None, self.toggle_log_panel, width=310, height=button_height, font_size=button_font, icon_file="ui_log.png")
         self.log_btn.pack(anchor="center", fill="x", pady=(0, self.scale_px(8)))
         self.exit_btn = ModernButton(
             buttons,
-            "Выход",
+            tr("exit"),
             None,
             self.exit_app,
             width=310,
@@ -1199,7 +1449,7 @@ class SingBoxGUI:
         top.pack(side="top", fill="both", expand=True)
 
         tk.Label(top, text=APP_TITLE, bg=BG, fg=TITLE, font=(FONT, self.title_size, "bold")).pack(anchor="center")
-        tk.Label(top, text="Защищенное подключение", bg=BG, fg=MUTED, font=(FONT, self.subtitle_size)).pack(anchor="center", pady=(self.scale_px(2), self.scale_px(8)))
+        tk.Label(top, text=tr("secure_connection"), bg=BG, fg=MUTED, font=(FONT, self.subtitle_size)).pack(anchor="center", pady=(self.scale_px(2), self.scale_px(8)))
 
         self.logo_image = load_logo(self.logo_size)
         if self.logo_image:
@@ -1208,7 +1458,7 @@ class SingBoxGUI:
             logo = tk.Label(top, text="VPN", bg=BG, fg=GREEN, font=(FONT, self.scale_px(42), "bold"))
         logo.pack(anchor="center")
 
-        tk.Label(top, text="Время подключения", bg=BG, fg=MUTED, font=(FONT, self.clamp_px(10, 9, 12), "bold")).pack(anchor="center", pady=(self.scale_px(14), self.scale_px(2)))
+        tk.Label(top, text=tr("connection_time"), bg=BG, fg=MUTED, font=(FONT, self.clamp_px(10, 9, 12), "bold")).pack(anchor="center", pady=(self.scale_px(14), self.scale_px(2)))
         self.timer_label = tk.Label(top, textvariable=self.timer_var, bg=BG, fg=TITLE, font=(FONT, self.timer_size))
         self.timer_label.pack(anchor="center")
 
@@ -1222,8 +1472,8 @@ class SingBoxGUI:
         self.log_panel.place(x=self.scale_px(28), y=self.window_height, width=self.window_width - self.scale_px(56), height=0)
         log_header = tk.Frame(self.log_panel, bg="#0d1c31")
         log_header.pack(fill="x")
-        tk.Label(log_header, text="Лог sing-box", bg="#0d1c31", fg=TITLE, font=(FONT, self.clamp_px(11, 10, 13), "bold")).pack(side="left", padx=14, pady=9)
-        close_log = tk.Label(log_header, text="Скрыть", bg="#0d1c31", fg=MUTED, font=(FONT, self.clamp_px(10, 9, 12), "bold"), cursor="hand2")
+        tk.Label(log_header, text=tr("singbox_log"), bg="#0d1c31", fg=TITLE, font=(FONT, self.clamp_px(11, 10, 13), "bold")).pack(side="left", padx=14, pady=9)
+        close_log = tk.Label(log_header, text=tr("hide"), bg="#0d1c31", fg=MUTED, font=(FONT, self.clamp_px(10, 9, 12), "bold"), cursor="hand2")
         close_log.pack(side="right", padx=14)
         close_log.bind("<Button-1>", lambda event: self.toggle_log_panel(False))
         self.log = scrolledtext.ScrolledText(
@@ -1314,7 +1564,7 @@ class SingBoxGUI:
 
     def ask_token_dialog(self, initial_token="", initial_url=""):
         dialog = tk.Toplevel(self.root)
-        dialog.title("Данные VPN")
+        dialog.title(tr("vpn_data"))
         dialog.configure(bg=BG)
         dialog.resizable(False, False)
         dialog.transient(self.root)
@@ -1323,15 +1573,15 @@ class SingBoxGUI:
         result = {"token": None, "config_url": None}
         frame = tk.Frame(dialog, bg=BG, padx=20, pady=18)
         frame.pack(fill="both", expand=True)
-        tk.Label(frame, text="Данные подключения", bg=BG, fg=TITLE, font=(FONT, 14, "bold")).pack(anchor="w")
-        tk.Label(frame, text="Введите UUID и URL сервера.", bg=BG, fg=MUTED, font=(FONT, 10)).pack(anchor="w", pady=(5, 12))
+        tk.Label(frame, text=tr("connection_data"), bg=BG, fg=TITLE, font=(FONT, 14, "bold")).pack(anchor="w")
+        tk.Label(frame, text=tr("enter_uuid_url"), bg=BG, fg=MUTED, font=(FONT, 10)).pack(anchor="w", pady=(5, 12))
 
-        tk.Label(frame, text="UUID токен", bg=BG, fg=TITLE, font=(FONT, 10, "bold")).pack(anchor="w")
+        tk.Label(frame, text=tr("uuid_token"), bg=BG, fg=TITLE, font=(FONT, 10, "bold")).pack(anchor="w")
         token_var = tk.StringVar(value=initial_token)
         token_entry = tk.Entry(frame, textvariable=token_var, width=54, font=(FONT, 12), bg="#0b1a2d", fg="#e5e7eb", insertbackground="white", relief="flat", highlightthickness=1, highlightbackground="#25425f", highlightcolor=BLUE)
         token_entry.pack(fill="x", ipady=8, pady=(5, 12))
 
-        tk.Label(frame, text="URL сервера", bg=BG, fg=TITLE, font=(FONT, 10, "bold")).pack(anchor="w")
+        tk.Label(frame, text=tr("server_url"), bg=BG, fg=TITLE, font=(FONT, 10, "bold")).pack(anchor="w")
         url_var = tk.StringVar(value=initial_url)
         url_entry = tk.Entry(frame, textvariable=url_var, width=54, font=(FONT, 12), bg="#0b1a2d", fg="#e5e7eb", insertbackground="white", relief="flat", highlightthickness=1, highlightbackground="#25425f", highlightcolor=BLUE)
         url_entry.pack(fill="x", ipady=8, pady=(5, 0))
@@ -1348,10 +1598,10 @@ class SingBoxGUI:
             try:
                 result["token"] = str(uuid.UUID(token))
             except ValueError:
-                error_label.config(text="Введите корректный UUID.")
+                error_label.config(text=tr("invalid_uuid"))
                 return
             if not self.is_valid_config_url(config_url):
-                error_label.config(text="Введите корректный URL сервера: http:// или https://")
+                error_label.config(text=tr("invalid_url"))
                 return
             result["config_url"] = config_url
             dialog.destroy()
@@ -1363,7 +1613,7 @@ class SingBoxGUI:
         button_box.pack(anchor="center")
         save_btn = ModernButton(
             button_box,
-            "Сохранить",
+            tr("save"),
             None,
             save,
             width=210,
@@ -1378,7 +1628,7 @@ class SingBoxGUI:
         save_btn.pack(side="left", padx=(0, 10))
         cancel_btn = ModernButton(
             button_box,
-            "Отмена",
+            tr("cancel"),
             None,
             cancel,
             width=180,
@@ -1417,9 +1667,9 @@ class SingBoxGUI:
         try:
             self.save_token(token)
             self.save_config_url(config_url)
-            self.write_log("Токен и URL сервера сохранены.\n")
+            self.write_log(tr("token_saved_log"))
         except Exception as e:
-            self.write_log(f"Не удалось сохранить данные подключения: {e}\n")
+            self.write_log(tr("save_data_error", error=e))
         return True
 
     def change_token(self):
@@ -1427,15 +1677,15 @@ class SingBoxGUI:
             return
         if self.prompt_for_token(force=True):
             if self.connection_state == "connected":
-                self.write_log("Новые данные будут применены при следующем подключении.\n")
+                self.write_log(tr("new_data_next_connect"))
             else:
-                self.write_log("Новые данные будут использованы при подключении.\n")
+                self.write_log(tr("new_data_connect"))
 
     def request_token_on_start(self):
         if self.client_uuid and self.config_url:
             return
         if not self.prompt_for_token():
-            self.set_status("disconnected", "Требуется токен или URL", ORANGE, "orange", True, False, True)
+            self.set_status("disconnected", tr("token_required"), ORANGE, "orange", True, False, True)
 
     def set_status(self, state, text, color, dot_color, start_enabled, stop_enabled, exit_enabled):
         self.connection_state = state
@@ -1456,15 +1706,15 @@ class SingBoxGUI:
         self.update_tray_icon(dot_color)
 
     def set_checking(self):
-        self.set_status("busy", "Проверка конфига...", ORANGE, "orange", False, False, True)
+        self.set_status("busy", tr("checking_config"), ORANGE, "orange", False, False, True)
 
     def set_verifying(self):
-        self.set_status("busy", "Проверка VPN...", ORANGE, "orange", False, False, True)
+        self.set_status("busy", tr("checking_vpn"), ORANGE, "orange", False, False, True)
 
     def set_connected(self, vpn_ip=None):
         self.is_stopping = False
         self.vpn_ip = vpn_ip or self.vpn_ip
-        status_text = f"Подключено · IP {self.vpn_ip}" if self.vpn_ip else "Подключено"
+        status_text = tr("connected_ip", ip=self.vpn_ip) if self.vpn_ip else tr("connected")
         self.set_status("connected", status_text, GREEN, "green", False, True, True)
         if not self.connected_since:
             self.connected_since = time.time()
@@ -1475,33 +1725,33 @@ class SingBoxGUI:
         self.connected_since = None
         self.vpn_ip = None
         self.timer_var.set("00:00:00")
-        self.set_status("disconnected", "Отключено", RED, "red", True, False, True)
+        self.set_status("disconnected", tr("disconnected"), RED, "red", True, False, True)
 
     def start_vpn(self):
         if self.connection_state != "disconnected" or self.is_exiting:
             return
         if not SING_BOX.exists():
-            messagebox.showerror("Ошибка", f"Не найден файл:\n{SING_BOX}")
+            messagebox.showerror(tr("error"), tr("file_not_found", path=SING_BOX))
             return
         if not self.prompt_for_token():
-            self.set_status("disconnected", "Требуется токен или URL", ORANGE, "orange", True, False, True)
+            self.set_status("disconnected", tr("token_required"), ORANGE, "orange", True, False, True)
             return
         self.set_checking()
         threading.Thread(target=self.prepare_and_start_vpn, daemon=True).start()
 
     def prepare_and_start_vpn(self):
-        before_ip = self.get_public_ip_for_log("IP до подключения")
+        before_ip = self.get_public_ip_for_log(tr("before_ip"))
         ok = update_config_from_template(self.log_safe, self.client_uuid, self.config_url)
         if not ok:
             self.root.after(0, self.set_disconnected)
-            self.root.after(0, messagebox.showerror, "Ошибка", CONFIG_DOWNLOAD_ERROR)
+            self.root.after(0, messagebox.showerror, tr("error"), CONFIG_DOWNLOAD_ERROR)
             return
-        self.log_safe("Проверка config.json успешна, запускаю VPN клиент...\n")
+        self.log_safe(tr("config_ok_starting"))
         self.root.after(0, self.launch_singbox, before_ip)
 
     def launch_singbox(self, before_ip=None):
         if not CONFIG.exists():
-            messagebox.showerror("Ошибка", f"Не найден файл:\n{CONFIG}")
+            messagebox.showerror(tr("error"), tr("file_not_found", path=CONFIG))
             self.set_disconnected()
             return
         self.set_verifying()
@@ -1513,10 +1763,10 @@ class SingBoxGUI:
             if self.is_exiting or self.is_stopping:
                 return
             if attempt > 1:
-                self.log_safe("Жду паузу перед повторным запуском...\n")
+                self.log_safe(tr("retry_wait"))
                 time.sleep(SINGBOX_START_RETRY_DELAY)
 
-            self.log_safe(f"Запуск sing-box, попытка {attempt}/{SINGBOX_START_RETRIES}...\n")
+            self.log_safe(tr("start_attempt", attempt=attempt, total=SINGBOX_START_RETRIES))
             try:
                 kwargs = {}
                 if os.name == "nt":
@@ -1536,7 +1786,7 @@ class SingBoxGUI:
                 )
             except Exception as e:
                 last_error = str(e)
-                self.log_safe(f"Ошибка запуска sing-box: {e}\n")
+                self.log_safe(tr("start_error", error=e))
                 break
 
             self.process = process
@@ -1545,18 +1795,18 @@ class SingBoxGUI:
 
             time.sleep(SINGBOX_ALIVE_CHECK_DELAY)
             if process.poll() is None:
-                self.log_safe("sing-box запущен, проверяю внешний IP...\n")
+                self.log_safe(tr("started_check_ip"))
                 threading.Thread(target=self.verify_after_start, args=(before_ip, process), daemon=True).start()
                 return
 
-            last_error = f"sing-box завершился при старте с кодом {process.returncode}"
+            last_error = tr("started_exit_code", code=process.returncode)
             self.log_safe(last_error + "\n")
             if self.process is process:
                 self.process = None
 
-        self.log_safe(f"Не удалось запустить sing-box: {last_error or 'неизвестная ошибка'}\n")
+        self.log_safe(tr("start_failed", error=last_error or tr("unknown_error")))
         self.root.after(0, self.set_disconnected)
-        self.root.after(0, messagebox.showerror, "Ошибка", VPN_START_ERROR)
+        self.root.after(0, messagebox.showerror, tr("error"), VPN_START_ERROR)
 
     def get_public_ip_for_log(self, label):
         try:
@@ -1564,13 +1814,13 @@ class SingBoxGUI:
             if ip:
                 self.log_safe(f"{label}: {ip}\n")
                 return ip
-            self.log_safe(f"{label}: не удалось определить\n")
+            self.log_safe(tr("ip_unknown", label=label))
         except Exception as e:
-            self.log_safe(f"{label}: не удалось определить ({e})\n")
+            self.log_safe(tr("ip_unknown_error", label=label, error=e))
         return None
 
     def verify_vpn_connection(self, before_ip, process=None):
-        self.log_safe(f"Проверяю внешний IP через ident.me до {VPN_VERIFY_TIMEOUT} секунд...\n")
+        self.log_safe(tr("checking_ident_timeout", timeout=VPN_VERIFY_TIMEOUT))
         deadline = time.time() + VPN_VERIFY_TIMEOUT
         last_ip = None
         last_error = None
@@ -1579,7 +1829,7 @@ class SingBoxGUI:
         while time.time() < deadline:
             active_process = process or self.process
             if not active_process or active_process.poll() is not None:
-                return False, None, "процесс sing-box остановлен"
+                return False, None, tr("process_stopped")
             try:
                 ip = fetch_public_ip(timeout=VPN_VERIFY_HTTP_TIMEOUT)
                 if ip:
@@ -1588,41 +1838,41 @@ class SingBoxGUI:
                         now = time.time()
                         if now - unchanged_logged_at >= 5:
                             left = max(0, int(deadline - now))
-                            self.log_safe(f"Текущий IP пока прежний: {ip}. Проверяю ещё до {left} сек.\n")
+                            self.log_safe(tr("ident_same_retry_win", ip=ip, left=left))
                             unchanged_logged_at = now
                     else:
-                        self.log_safe(f"VPN IP подтверждён: {ip}\n")
+                        self.log_safe(tr("vpn_ip_confirmed", ip=ip))
                         return True, ip, None
                 else:
-                    last_error = "ident.me вернул пустой ответ"
+                    last_error = tr("ident_empty")
             except Exception as e:
                 last_error = str(e)
-                self.log_safe(f"ident.me пока недоступен: {e}\n")
+                self.log_safe(tr("ident_unavailable", error=e))
             time.sleep(VPN_VERIFY_INTERVAL)
 
         if last_ip and before_ip and last_ip == before_ip:
-            return False, last_ip, "внешний IP не изменился после запуска sing-box"
-        return False, last_ip, last_error or "не удалось получить внешний IP"
+            return False, last_ip, tr("external_ip_same_after_start")
+        return False, last_ip, last_error or tr("external_ip_failed")
 
     def verify_after_start(self, before_ip, process=None):
         ok, vpn_ip, reason = self.verify_vpn_connection(before_ip, process)
         if ok:
             self.root.after(0, self.set_connected, vpn_ip)
             return
-        self.log_safe(f"VPN не подтверждён: {reason}\n")
+        self.log_safe(tr("vpn_not_confirmed", reason=reason))
         if vpn_ip:
-            self.log_safe(f"Последний IP от ident.me: {vpn_ip}\n")
-        if reason == "процесс sing-box остановлен":
+            self.log_safe(tr("last_ident_ip", ip=vpn_ip))
+        if reason == tr("process_stopped"):
             self.root.after(0, self.set_disconnected)
-            self.root.after(0, messagebox.showerror, "Ошибка", VPN_START_ERROR)
+            self.root.after(0, messagebox.showerror, tr("error"), VPN_START_ERROR)
             return
         self.stop_process_after_failed_verify(process)
         self.root.after(0, self.set_disconnected)
-        self.root.after(0, messagebox.showerror, "Проверка VPN", VPN_VERIFY_ERROR)
+        self.root.after(0, messagebox.showerror, tr("vpn_check_title"), VPN_VERIFY_ERROR)
 
 
     def stop_process_after_failed_verify(self, process=None):
-        self.log_safe("Останавливаю sing-box после неудачной проверки VPN...\n")
+        self.log_safe(tr("stop_after_failed_verify"))
         active_process = process or self.process
         stop_singbox_process(active_process, self.log_safe)
         if self.process is active_process:
@@ -1637,14 +1887,14 @@ class SingBoxGUI:
             for line in active_process.stdout:
                 self.root.after(0, self.write_log, clean_log(line))
         except Exception as e:
-            self.root.after(0, self.write_log, f"\nОшибка чтения лога: {e}\n")
+            self.root.after(0, self.write_log, tr("read_log_error", error=e))
 
     def watch_process(self, process=None):
         active_process = process or self.process
         if not active_process:
             return
         code = active_process.wait()
-        self.root.after(0, self.write_log, f"\nsing-box завершился с кодом {code}\n")
+        self.root.after(0, self.write_log, tr("singbox_exit_code", code=code))
         if self.process is active_process:
             self.process = None
         if self.process is None and not self.is_exiting and not self.is_stopping:
@@ -1654,19 +1904,19 @@ class SingBoxGUI:
         if self.is_stopping or self.connection_state != "connected" or self.is_exiting:
             return
         self.is_stopping = True
-        self.set_status("busy", "Отключение...", ORANGE, "orange", False, False, True)
+        self.set_status("busy", tr("disconnecting"), ORANGE, "orange", False, False, True)
         threading.Thread(target=self.stop_vpn_worker, daemon=True).start()
 
     def stop_vpn_worker(self):
-        self.log_safe("\nОстановка sing-box...\n")
+        self.log_safe(tr("stop_singbox"))
         active_process = self.process
         try:
             stop_singbox_process(active_process, self.log_safe)
         except Exception as e:
-            self.log_safe(f"Ошибка остановки sing-box: {e}\n")
+            self.log_safe(tr("stop_error", error=e))
         if self.process is active_process:
             self.process = None
-        self.log_safe("sing-box остановлен.\n")
+        self.log_safe(tr("singbox_stopped"))
         if not self.is_exiting:
             self.root.after(0, self.set_disconnected)
 
@@ -1680,7 +1930,7 @@ class SingBoxGUI:
         self.token_btn.set_enabled(False)
         self.log_btn.set_enabled(False)
         self.exit_btn.set_enabled(False)
-        self.status_var.set("Выход...")
+        self.status_var.set(tr("exiting"))
         self.status_label.config(fg=ORANGE)
         self.update_tray_icon("orange")
 

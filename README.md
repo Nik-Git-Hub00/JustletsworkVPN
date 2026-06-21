@@ -104,7 +104,7 @@ macOS builds create both zip and DMG artifacts. The zip contains `WorkVPN.app`; 
 
 ## Windows installer
 
-The Windows setup installers are built with Inno Setup 6 from `installer/WorkVPN.iss`.
+The Windows setup installers are built with Inno Setup 6 from `installer/WorkVPN.iss`. The installer supports English and Russian, uses the Windows UI language as the default, and still shows a language selector before installation.
 
 Installer behavior:
 

@@ -40,27 +40,39 @@ PrivilegesRequired=admin
 SetupIconFile=..\assets\vpn_icon.ico
 UninstallDisplayIcon={app}\{#AppExeName}
 WizardStyle=modern
-LanguageDetectionMethod=none
+LanguageDetectionMethod=uilanguage
+ShowLanguageDialog=yes
 CloseApplications=yes
 RestartIfNeededByRun=no
 AlwaysRestart=no
 
 [Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
 
+[CustomMessages]
+english.CreateDesktopShortcut=Create a desktop shortcut
+russian.CreateDesktopShortcut=Создать ярлык на рабочем столе
+english.AdditionalIcons=Additional icons:
+russian.AdditionalIcons=Дополнительные значки:
+english.UninstallApp=Uninstall WorkVPN
+russian.UninstallApp=Удалить WorkVPN
+english.LaunchApp=Launch WorkVPN
+russian.LaunchApp=Запустить WorkVPN
+
 [Tasks]
-Name: "desktopicon"; Description: "Создать ярлык на рабочем столе"; GroupDescription: "Дополнительные значки:"; Flags: checkedonce
+Name: "desktopicon"; Description: "{cm:CreateDesktopShortcut}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: checkedonce
 
 [Files]
 Source: "{#SourceExe}"; DestDir: "{app}"; DestName: "{#AppExeName}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"
-Name: "{group}\Удалить {#AppName}"; Filename: "{uninstallexe}"
+Name: "{group}\{cm:UninstallApp}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#AppExeName}"; Description: "Запустить {#AppName}"; Flags: nowait postinstall skipifsilent unchecked runascurrentuser
+Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchApp}"; Flags: nowait postinstall skipifsilent unchecked runascurrentuser
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{localappdata}\WorkVPN"
