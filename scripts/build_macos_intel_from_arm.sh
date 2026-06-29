@@ -3,11 +3,22 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+app_version="${APP_VERSION:-$(head -n 1 VERSION | tr -d '[:space:]')}"
+if [[ ! "$app_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "Invalid application version: $app_version" >&2
+  exit 64
+fi
+export APP_VERSION="$app_version"
+export APP_UPDATE_REPO="${APP_UPDATE_REPO:-${GITHUB_REPOSITORY:-}}"
+
 if [[ "$(uname -m)" != "arm64" ]]; then
   echo "This script is only for building Intel macOS app from Apple Silicon via Rosetta." >&2
   echo "On an Intel Mac use ./scripts/build_macos.sh" >&2
   exit 64
 fi
+
+echo "Building WorkVPN v$APP_VERSION for macos-x64"
+[[ -n "$APP_UPDATE_REPO" ]] && echo "Update repository: $APP_UPDATE_REPO"
 
 base_python="${PYTHON:-python3}"
 venv_dir="venv-intel"

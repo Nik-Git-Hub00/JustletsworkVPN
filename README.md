@@ -7,8 +7,11 @@ Clean workspace for the WorkVPN desktop client.
 - `apps/gui_vpn_mac.py` - macOS entrypoint.
 - `apps/gui_vpn_win.py` - Windows entrypoint.
 - `apps/cli_vpn_linux.py` - Linux CLI entrypoint.
-- `src/workvpn/platform/mac_app.py` - macOS GUI/helper implementation.
-- `src/workvpn/platform/win_app.py` - Windows GUI/process implementation.
+- `src/workvpn/platform/mac_app.py` - macOS PySide6 GUI.
+- `src/workvpn/platform/mac_backend.py` - macOS helper/config/network implementation.
+- `src/workvpn/platform/win_app.py` - Windows PySide6 GUI.
+- `src/workvpn/platform/win_backend.py` - Windows process/config/network implementation.
+- `src/workvpn/version.py` - application version lookup for source and packaged builds.
 - `src/workvpn/platform/linux_cli.py` - Linux CLI/systemd implementation.
 - `assets/` - shared UI assets and icons.
 - `runtime/` - architecture folders for sing-box runtime files. Binaries are not committed.
@@ -68,6 +71,10 @@ PYTHON=/path/to/python3 ./scripts/build_macos.sh
 ```
 
 For Intel macOS builds from Apple Silicon, the script creates `venv-intel` through Rosetta/`arch -x86_64` and downloads the Intel `sing-box` automatically.
+
+The macOS and Windows interfaces use PySide6. Qt handles logical pixels and native DPI scaling, so the same layouts are used on Full HD, QHD, 4K, and Retina displays.
+
+GUI window titles include the application version, for example `WorkVPN v1.0.0`. Manual builds read it from `VERSION`. GitHub release builds embed the version calculated by the workflow through `APP_VERSION`.
 
 ## Build commands
 
@@ -213,3 +220,4 @@ If there are no existing `v*.*.*` tags, the first automatic release is `v1.0.0`.
 
 The workflow uploads macOS zip/DMG artifacts, Windows zip/setup artifacts, and Linux tar.gz/deb/rpm artifacts to the GitHub Release.
 
+Update checks for macOS and Windows are embedded only when `APP_UPDATE_REPO=owner/repo` is set during manual builds. GitHub Actions sets this automatically from the repository name.

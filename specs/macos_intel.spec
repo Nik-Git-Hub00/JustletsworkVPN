@@ -1,8 +1,16 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+import os
 from pathlib import Path
 
 ROOT = Path(SPECPATH).parent
+APP_VERSION = os.environ.get('APP_VERSION') or (ROOT / 'VERSION').read_text(encoding='utf-8').strip()
+VERSION_FILE = ROOT / '.build' / 'VERSION'
+VERSION_FILE.parent.mkdir(parents=True, exist_ok=True)
+VERSION_FILE.write_text(APP_VERSION + '\n', encoding='utf-8')
+UPDATE_REPO = os.environ.get('APP_UPDATE_REPO') or os.environ.get('GITHUB_REPOSITORY') or ''
+UPDATE_REPO_FILE = ROOT / '.build' / 'UPDATE_REPO'
+UPDATE_REPO_FILE.write_text(UPDATE_REPO.strip() + '\n', encoding='utf-8')
 
 a = Analysis(
     [str(ROOT / 'apps/gui_vpn_mac.py')],
@@ -23,12 +31,14 @@ a = Analysis(
         (str(ROOT / 'assets/power_button_disconnected.png'), 'assets'),
         (str(ROOT / 'assets/power_button_busy.png'), 'assets'),
         (str(ROOT / 'assets/power_button_connected.png'), 'assets'),
+        (str(VERSION_FILE), '.'),
+        (str(UPDATE_REPO_FILE), '.'),
     ],
-    hiddenimports=[],
+    hiddenimports=['PySide6.QtCore', 'PySide6.QtGui', 'PySide6.QtWidgets'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=['tkinter'],
     noarchive=False,
     optimize=0,
 )
@@ -66,4 +76,9 @@ app = BUNDLE(
     name='WorkVPN.app',
     icon=str(ROOT / 'assets/vpn_icon.icns'),
     bundle_identifier=None,
+    info_plist={
+        'CFBundleShortVersionString': APP_VERSION,
+        'CFBundleVersion': APP_VERSION,
+        'NSHighResolutionCapable': True,
+    },
 )

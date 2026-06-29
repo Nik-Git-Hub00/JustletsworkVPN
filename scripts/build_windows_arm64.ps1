@@ -4,6 +4,13 @@ Set-Location (Split-Path -Parent $PSScriptRoot)
 $Python = if ($env:PYTHON) { $env:PYTHON } else { "python" }
 $VenvPython = Join-Path "venv" "Scripts/python.exe"
 $Version = if ($env:APP_VERSION) { $env:APP_VERSION } else { (Get-Content "VERSION" -First 1).Trim() }
+if ($Version -notmatch '^\d+\.\d+\.\d+$') {
+    throw "Invalid application version: $Version"
+}
+$env:APP_VERSION = $Version
+if (-not $env:APP_UPDATE_REPO -and $env:GITHUB_REPOSITORY) { $env:APP_UPDATE_REPO = $env:GITHUB_REPOSITORY }
+Write-Host "Building WorkVPN v$Version for windows-arm64"
+if ($env:APP_UPDATE_REPO) { Write-Host "Update repository: $env:APP_UPDATE_REPO" }
 
 if (-not (Test-Path $VenvPython)) {
     & $Python -c "import sys; sys.exit('Python 3.11+ is required') if sys.version_info < (3, 11) else None"

@@ -3,6 +3,14 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+app_version="${APP_VERSION:-$(head -n 1 VERSION | tr -d '[:space:]')}"
+if [[ ! "$app_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "Invalid application version: $app_version" >&2
+  exit 64
+fi
+export APP_VERSION="$app_version"
+export APP_UPDATE_REPO="${APP_UPDATE_REPO:-${GITHUB_REPOSITORY:-}}"
+
 case "$(uname -m)" in
   arm64)
     runtime_path="runtime/macos-arm64/sing-box"
@@ -21,6 +29,9 @@ case "$(uname -m)" in
     exit 64
     ;;
 esac
+
+echo "Building WorkVPN v$APP_VERSION for $release_arch"
+[[ -n "$APP_UPDATE_REPO" ]] && echo "Update repository: $APP_UPDATE_REPO"
 
 base_python="${PYTHON:-python3}"
 venv_dir="venv"

@@ -27,3 +27,4 @@ runtime/**/*
 
 # Local config
 .env
+.build/
