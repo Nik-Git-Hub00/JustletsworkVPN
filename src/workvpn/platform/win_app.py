@@ -316,8 +316,9 @@ class WorkVpnWindow(QMainWindow):
         self.update_banner.setObjectName("updateBanner")
         self.update_banner.hide()
         update_layout = QHBoxLayout(self.update_banner)
-        update_layout.setContentsMargins(12, 7, 10, 7)
-        update_layout.setSpacing(8)
+        update_layout.setContentsMargins(12, 8, 10, 8)
+        update_layout.setSpacing(10)
+        update_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         self.update_text = QLabel("")
         self.update_text.setObjectName("updateText")
         self.update_text.setWordWrap(True)
@@ -327,9 +328,9 @@ class WorkVpnWindow(QMainWindow):
         self.update_disable_btn.setObjectName("updateDisable")
         self.update_open_btn.clicked.connect(self.open_update_url)
         self.update_disable_btn.clicked.connect(self.disable_updates)
-        update_layout.addWidget(self.update_text, 1)
-        update_layout.addWidget(self.update_open_btn)
-        update_layout.addWidget(self.update_disable_btn)
+        update_layout.addWidget(self.update_text, 1, Qt.AlignmentFlag.AlignVCenter)
+        update_layout.addWidget(self.update_open_btn, 0, Qt.AlignmentFlag.AlignVCenter)
+        update_layout.addWidget(self.update_disable_btn, 0, Qt.AlignmentFlag.AlignVCenter)
         content_layout.addWidget(self.update_banner)
         content_layout.addSpacing(12)
 
@@ -429,7 +430,7 @@ class WorkVpnWindow(QMainWindow):
             QLabel#updateText { color: #d8efff; font-weight: 700; }
             QPushButton#updateOpen, QPushButton#updateDisable {
                 color: #eef6ff; background: #15395a; border: 1px solid #3a7dad;
-                border-radius: 6px; font-weight: 700; padding: 5px 9px;
+                border-radius: 6px; font-weight: 700; padding: 0 10px;
             }
             QPushButton#updateOpen:hover, QPushButton#updateDisable:hover { background: #1d4c76; }
             QPushButton#powerButton { border: none; background: transparent; padding: 0; }
@@ -504,6 +505,7 @@ class WorkVpnWindow(QMainWindow):
             update_font = QFont("Segoe UI", max(11, min(13, round(w * 0.024))), QFont.Weight.Bold)
             self.update_text.setFont(update_font)
             for button in (self.update_open_btn, self.update_disable_btn):
+                button.setFixedHeight(max(30, min(34, round(w * 0.06))))
                 button.setFont(QFont("Segoe UI", max(10, min(12, round(w * 0.022))), QFont.Weight.Bold))
 
     def closeEvent(self, event):
