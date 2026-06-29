@@ -76,6 +76,8 @@ The macOS and Windows interfaces use PySide6. Qt handles logical pixels and nati
 
 GUI window titles include the application version, for example `WorkVPN v1.0.0`. Manual builds read it from `VERSION`. GitHub release builds embed the version calculated by the workflow through `APP_VERSION`.
 
+macOS and Windows builds can also embed the GitHub repository used for update checks. GitHub Actions sets it automatically. For manual builds, pass `APP_UPDATE_REPO=owner/repo`; if it is not set, update checks are disabled in the packaged app.
+
 ## Build commands
 
 macOS:
@@ -83,6 +85,13 @@ macOS:
 ```bash
 ./scripts/build_macos.sh                 # native build: ARM on Apple Silicon, Intel on Intel Mac
 ./scripts/build_macos_intel_from_arm.sh  # Intel build from Apple Silicon via Rosetta
+```
+
+macOS manual build with explicit version and update repository:
+
+```bash
+APP_VERSION=1.0.0 APP_UPDATE_REPO=owner/repo ./scripts/build_macos.sh
+APP_VERSION=1.0.0 APP_UPDATE_REPO=owner/repo ./scripts/build_macos_intel_from_arm.sh
 ```
 
 Linux native architecture:
@@ -99,6 +108,20 @@ Windows x64:
 ```
 
 Windows ARM64:
+
+```powershell
+./scripts/build_windows_arm64.ps1
+```
+
+Windows manual build with explicit version and update repository:
+
+```powershell
+$env:APP_VERSION = "1.0.0"
+$env:APP_UPDATE_REPO = "owner/repo"
+./scripts/build_windows.ps1
+```
+
+For Windows ARM64, use the same environment variables and run:
 
 ```powershell
 ./scripts/build_windows_arm64.ps1
@@ -218,6 +241,4 @@ Manual release from GitHub Actions:
 
 If there are no existing `v*.*.*` tags, the first automatic release is `v1.0.0`.
 
-The workflow uploads macOS zip/DMG artifacts, Windows zip/setup artifacts, and Linux tar.gz/deb/rpm artifacts to the GitHub Release.
-
-Update checks for macOS and Windows are embedded only when `APP_UPDATE_REPO=owner/repo` is set during manual builds. GitHub Actions sets this automatically from the repository name.
+The workflow uploads macOS zip/DMG artifacts, Windows zip/setup artifacts, and Linux tar.gz/deb/rpm artifacts to the GitHub Release. GitHub Actions passes `APP_UPDATE_REPO=${{ github.repository }}` into macOS and Windows builds automatically, so packaged apps can check the latest release from the same repository.
