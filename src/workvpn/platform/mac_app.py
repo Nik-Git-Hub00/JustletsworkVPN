@@ -20,7 +20,7 @@ from PySide6.QtCore import (
     QUrl,
     Signal,
 )
-from PySide6.QtGui import QDesktopServices, QColor, QFont, QIcon, QKeySequence, QPixmap, QShortcut
+from PySide6.QtGui import QDesktopServices, QColor, QFont, QIcon, QKeySequence, QPainter, QPixmap, QRegion, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -71,11 +71,13 @@ from .mac_backend import (
     update_config_from_template,
 )
 from workvpn.update_check import check_latest_release, disable_update_checks, update_checks_disabled
+from workvpn.theme import DARK, LIGHT, load_theme, save_theme, status_color, style_sheet
 from workvpn.version import get_app_version
 
 
 APP_VERSION = get_app_version()
 WINDOW_TITLE = f"{APP_TITLE} v{APP_VERSION}"
+ICON_TEXT_SPACE = "\u2002"
 
 
 class UiBridge(QObject):
@@ -96,15 +98,51 @@ def icon_asset(filename: str) -> QIcon:
     return QIcon(str(resource_path(f"assets/{filename}")))
 
 
+def action_icon_asset(filename: str) -> QIcon:
+    pixmap = pixmap_asset(filename)
+    if pixmap.isNull():
+        return QIcon()
+    bounds = QRegion(pixmap.mask()).boundingRect()
+    if bounds.isEmpty():
+        return QIcon(pixmap)
+    cropped = pixmap.copy(bounds)
+    side = max(cropped.width(), cropped.height())
+    padding = max(2, round(side * 0.08))
+    canvas_side = side + padding * 2
+    canvas = QPixmap(canvas_side, canvas_side)
+    canvas.fill(Qt.GlobalColor.transparent)
+    x = (canvas_side - cropped.width()) // 2
+    y = (canvas_side - cropped.height()) // 2 + max(1, round(canvas_side * 0.04))
+    painter = QPainter(canvas)
+    painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+    painter.drawPixmap(x, y, cropped)
+    painter.end()
+    return QIcon(canvas)
+
+
 class ActionButton(QPushButton):
-    def __init__(self, text, icon_file, danger=False, parent=None):
-        super().__init__(text, parent)
+    def __init__(self, text, icon_file, danger=False, light_theme=False, parent=None):
+        super().__init__(parent)
+        self.label_text = text
+        self.icon_file = icon_file
+        self.set_icon_text_spacing(1)
         self.setObjectName("dangerButton" if danger else "actionButton")
-        self.setIcon(icon_asset(icon_file))
-        self.setIconSize(QSize(25, 25))
+        self.set_theme(light_theme)
+        self.setIconSize(QSize(21, 21))
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setMinimumHeight(50)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+    def set_theme(self, light_theme):
+        themed_icons = {
+            "ui_token.png": "ui_token_light.png",
+            "ui_log.png": "ui_log_light.png",
+        }
+        filename = themed_icons.get(self.icon_file, self.icon_file) if light_theme else self.icon_file
+        self.setIcon(action_icon_asset(filename))
+
+    def set_icon_text_spacing(self, spaces):
+        self.setText(f"{ICON_TEXT_SPACE * spaces}{self.label_text}")
 
 
 class PowerButton(QPushButton):
@@ -129,7 +167,7 @@ class PowerButton(QPushButton):
 
 
 class CredentialsDialog(QDialog):
-    def __init__(self, token="", config_url="", parent=None):
+    def __init__(self, token="", config_url="", theme=DARK, parent=None):
         super().__init__(parent)
         self.setWindowTitle(tr("vpn_data"))
         self.setModal(True)
@@ -174,9 +212,9 @@ class CredentialsDialog(QDialog):
 
         buttons = QHBoxLayout()
         buttons.setSpacing(12)
-        save = ActionButton(tr("save"), "ui_save.png")
+        save = ActionButton(tr("save"), "ui_save.png", light_theme=theme == LIGHT)
         save.setObjectName("saveButton")
-        cancel = ActionButton(tr("cancel"), "ui_cancel.png")
+        cancel = ActionButton(tr("cancel"), "ui_cancel.png", light_theme=theme == LIGHT)
         save.clicked.connect(self.validate_and_accept)
         cancel.clicked.connect(self.reject)
         buttons.addWidget(save)
@@ -228,6 +266,8 @@ class WorkVpnWindow(QMainWindow):
         self.setWindowFlag(Qt.WindowType.WindowMaximizeButtonHint, False)
         self.setFixedSize(self.initial_window_size())
 
+        self.theme = load_theme(APP_SUPPORT)
+        self.current_status_color = RED
         self.connection_state = "disconnected"
         self.client_uuid = self.load_saved_token()
         self.config_url = self.load_saved_config_url()
@@ -295,10 +335,21 @@ class WorkVpnWindow(QMainWindow):
         content_layout.setContentsMargins(0, 0, 0, 0)
         content_layout.setSpacing(0)
 
+        title_row = QHBoxLayout()
+        title_row.setContentsMargins(0, 0, 0, 0)
+        title_row.setSpacing(8)
+        self.title_spacer = QWidget()
         self.title_label = QLabel(APP_TITLE)
         self.title_label.setObjectName("appTitle")
         self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        content_layout.addWidget(self.title_label)
+        self.theme_btn = QPushButton()
+        self.theme_btn.setObjectName("themeToggle")
+        self.theme_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.theme_btn.clicked.connect(self.toggle_theme)
+        title_row.addWidget(self.title_spacer)
+        title_row.addWidget(self.title_label, 1)
+        title_row.addWidget(self.theme_btn)
+        content_layout.addLayout(title_row)
 
         self.subtitle_label = QLabel(tr("secure_connection"))
         self.subtitle_label.setObjectName("subtitle")
@@ -362,9 +413,12 @@ class WorkVpnWindow(QMainWindow):
         buttons_layout = QVBoxLayout(self.buttons)
         buttons_layout.setContentsMargins(0, 0, 0, 0)
         buttons_layout.setSpacing(9)
-        self.token_btn = ActionButton(tr("change_token_url"), "ui_token.png")
-        self.log_btn = ActionButton(tr("log"), "ui_log.png")
-        self.exit_btn = ActionButton(tr("exit"), "ui_exit.png", danger=True)
+        light_theme = self.theme == LIGHT
+        self.token_btn = ActionButton(tr("change_token_url"), "ui_token.png", light_theme=light_theme)
+        self.log_btn = ActionButton(tr("log"), "ui_log.png", light_theme=light_theme)
+        self.exit_btn = ActionButton(tr("exit"), "ui_cancel.png", danger=True, light_theme=light_theme)
+        for button in (self.token_btn, self.log_btn, self.exit_btn):
+            button.set_icon_text_spacing(1)
         self.token_btn.clicked.connect(self.change_token)
         self.log_btn.clicked.connect(lambda _checked=False: self.toggle_log_panel())
         self.exit_btn.clicked.connect(self.exit_app)
@@ -412,52 +466,26 @@ class WorkVpnWindow(QMainWindow):
         self.position_log_panel()
 
     def apply_styles(self):
-        self.setStyleSheet(
-            """
-            QWidget#central, QDialog#credentialsDialog { background: #061221; color: #eef6ff; }
-            QLabel#appTitle { color: #eef6ff; font-weight: 700; }
-            QLabel#subtitle, QLabel#dialogSubtitle { color: #8ea5c2; }
-            QLabel#timeCaption { color: #8ea5c2; font-weight: 700; }
-            QLabel#timer { color: #eef6ff; font-weight: 400; }
-            QLabel#status { font-weight: 700; }
-            QFrame#updateBanner { background: #0d2b45; border: 1px solid #2b75a8; border-radius: 8px; }
-            QLabel#updateText { color: #d8efff; font-weight: 700; }
-            QPushButton#updateOpen, QPushButton#updateDisable {
-                color: #eef6ff; background: #15395a; border: 1px solid #3a7dad;
-                border-radius: 6px; font-weight: 700; padding: 0 10px;
-            }
-            QPushButton#updateOpen:hover, QPushButton#updateDisable:hover { background: #1d4c76; }
-            QPushButton#powerButton { border: none; background: transparent; padding: 0; }
-            QPushButton#powerButton:disabled { background: transparent; }
-            QPushButton#actionButton, QPushButton#dangerButton, QPushButton#saveButton {
-                color: #eef6ff; background: #10213a; border: 1px solid #284867;
-                border-radius: 7px; font-weight: 700; padding: 8px 18px;
-            }
-            QPushButton#actionButton:hover { background: #183252; border-color: #3b6389; }
-            QPushButton#actionButton:pressed { background: #0c1a2d; }
-            QPushButton#dangerButton { color: #ffe4ea; background: #4a1624; border-color: #9f2947; }
-            QPushButton#dangerButton:hover { background: #6d1d32; border-color: #d3365c; }
-            QPushButton#saveButton { background: #1266d6; border-color: #3b82f6; }
-            QPushButton#saveButton:hover { background: #1d7cff; }
-            QFrame#logPanel { background: #07111f; border: 1px solid #284867; border-radius: 8px; }
-            QFrame#logHeader { background: #0d1c31; border: none; }
-            QLabel#logTitle { color: #eef6ff; font-weight: 700; border: none; }
-            QPushButton#hideLog { color: #8ea5c2; background: transparent; border: none; font-weight: 700; }
-            QPushButton#hideLog:hover { color: #eef6ff; }
-            QPlainTextEdit#logText {
-                color: #d7e3f4; background: #030a14; border: none;
-                padding: 8px; font-family: Menlo, Monaco, monospace;
-            }
-            QLabel#dialogTitle { color: #eef6ff; font-size: 20px; font-weight: 700; }
-            QLabel#fieldLabel { color: #eef6ff; font-weight: 700; }
-            QLabel#fieldError { color: #fb7185; min-height: 20px; }
-            QLineEdit#credentialField {
-                color: #eef6ff; background: #0b1a2d; border: 1px solid #284867;
-                border-radius: 7px; padding: 11px 12px; selection-background-color: #2563eb;
-            }
-            QLineEdit#credentialField:focus { border-color: #3b82f6; }
-            """
+        self.setStyleSheet(style_sheet(self.theme))
+        self.update_theme_controls()
+
+    def update_theme_controls(self):
+        light_theme = self.theme == LIGHT
+        self.theme_btn.setIcon(icon_asset("ui_theme_moon.png" if light_theme else "ui_theme_sun.png"))
+        self.theme_btn.setToolTip(tr("switch_dark_theme") if light_theme else tr("switch_light_theme"))
+        for button in (self.token_btn, self.log_btn, self.exit_btn):
+            button.set_theme(light_theme)
+        self.status_label.setStyleSheet(
+            f"color: {status_color(self.theme, self.current_status_color)};"
         )
+
+    def toggle_theme(self):
+        self.theme = DARK if self.theme == LIGHT else LIGHT
+        try:
+            save_theme(APP_SUPPORT, self.theme)
+        except OSError as error:
+            self.log_safe(tr("save_theme_error", error=error))
+        self.apply_styles()
 
     def install_shortcuts(self):
         self.minimize_shortcut = QShortcut(QKeySequence("Meta+M"), self)
@@ -490,13 +518,16 @@ class WorkVpnWindow(QMainWindow):
         )
         self.logo_label.setFixedSize(logo_size, logo_size)
         self.power_button.set_diameter(power_size)
+        theme_size = max(34, min(40, round(w * 0.072)))
+        self.title_spacer.setFixedSize(theme_size, theme_size)
+        self.theme_btn.setFixedSize(theme_size, theme_size)
+        self.theme_btn.setIconSize(QSize(round(theme_size * 0.64), round(theme_size * 0.64)))
         button_height = max(48, min(58, round(h * 0.066)))
-        icon_size = max(23, min(29, round(button_height * 0.48)))
+        icon_size = 21
         for button in (self.token_btn, self.log_btn, self.exit_btn):
             button.setMinimumHeight(button_height)
             button.setMaximumHeight(button_height)
             button.setIconSize(QSize(icon_size, icon_size))
-            button.setFont(QFont("Helvetica", max(14, min(17, round(w * 0.03))), QFont.Weight.Bold))
         if hasattr(self, "update_text"):
             update_font = QFont("Helvetica", max(11, min(13, round(w * 0.024))), QFont.Weight.Bold)
             self.update_text.setFont(update_font)
@@ -692,7 +723,7 @@ class WorkVpnWindow(QMainWindow):
     def prompt_for_token(self, force=False):
         if self.client_uuid and self.config_url and not force:
             return True
-        dialog = CredentialsDialog(self.client_uuid or "", self.config_url or "", self)
+        dialog = CredentialsDialog(self.client_uuid or "", self.config_url or "", self.theme, self)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return False
         self.client_uuid = dialog.result_token
@@ -728,8 +759,9 @@ class WorkVpnWindow(QMainWindow):
 
     def apply_status(self, state, text, color, power_enabled, exit_enabled):
         self.connection_state = state
+        self.current_status_color = color
         self.status_label.setText(text)
-        self.status_label.setStyleSheet(f"color: {color};")
+        self.status_label.setStyleSheet(f"color: {status_color(self.theme, color)};")
         power_state = "connected" if state == "connected" else "busy" if state == "busy" else "disconnected"
         self.power_button.set_state(power_state, power_enabled)
         self.token_btn.setEnabled(not self.is_exiting)

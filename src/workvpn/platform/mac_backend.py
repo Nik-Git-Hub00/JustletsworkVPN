@@ -178,6 +178,9 @@ I18N = {
         "update_disable": "Не показывать",
         "update_open": "Открыть",
         "update_available": "Доступна новая версия {version}.",
+        "switch_light_theme": "Включить светлую тему",
+        "switch_dark_theme": "Включить тёмную тему",
+        "save_theme_error": "Не удалось сохранить тему: {error}\n",
     },
     "en": {
         "config_download_error": "Could not download the config. Check the URL and credentials.",
@@ -292,6 +295,9 @@ I18N = {
         "update_disable": "Hide",
         "update_open": "Open",
         "update_available": "New version {version} is available.",
+        "switch_light_theme": "Switch to light theme",
+        "switch_dark_theme": "Switch to dark theme",
+        "save_theme_error": "Could not save theme: {error}\n",
     },
 }
 
@@ -835,4 +841,3 @@ launchctl bootstrap system {launchd_plist} >/dev/null 2>&1 || true
 exit 0
 """
     return cmd
-

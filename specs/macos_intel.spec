@@ -19,7 +19,9 @@ a = Analysis(
     datas=[
         (str(ROOT / 'assets/vpn_icon.icns'), '.'),
         (str(ROOT / 'assets/ui_token.png'), 'assets'),
+        (str(ROOT / 'assets/ui_token_light.png'), 'assets'),
         (str(ROOT / 'assets/ui_log.png'), 'assets'),
+        (str(ROOT / 'assets/ui_log_light.png'), 'assets'),
         (str(ROOT / 'assets/ui_exit.png'), 'assets'),
         (str(ROOT / 'assets/ui_save.png'), 'assets'),
         (str(ROOT / 'assets/ui_cancel.png'), 'assets'),
@@ -31,6 +33,8 @@ a = Analysis(
         (str(ROOT / 'assets/power_button_disconnected.png'), 'assets'),
         (str(ROOT / 'assets/power_button_busy.png'), 'assets'),
         (str(ROOT / 'assets/power_button_connected.png'), 'assets'),
+        (str(ROOT / 'assets/ui_theme_sun.png'), 'assets'),
+        (str(ROOT / 'assets/ui_theme_moon.png'), 'assets'),
         (str(VERSION_FILE), '.'),
         (str(UPDATE_REPO_FILE), '.'),
     ],
