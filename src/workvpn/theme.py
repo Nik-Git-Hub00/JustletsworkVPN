@@ -73,6 +73,23 @@ QPushButton#dangerButton { color: #ffe4ea; background: #4a1624; border-color: #9
 QPushButton#dangerButton:hover { background: #6d1d32; border-color: #d3365c; }
 QPushButton#saveButton { background: #1266d6; border-color: #3b82f6; }
 QPushButton#saveButton:hover { background: #1d7cff; }
+QPushButton#sourceMode {
+    color: #9db2cb; background: #0b1a2d; border: 1px solid #284867;
+    border-radius: 7px; padding: 9px 14px; font-weight: 700;
+}
+QPushButton#sourceMode:hover { background: #122943; color: #eef6ff; }
+QPushButton#sourceMode:checked { color: #ffffff; background: #1266d6; border-color: #3b82f6; }
+QFrame#configDropArea {
+    background: #0b1a2d; border: 1px dashed #3a6d98; border-radius: 8px;
+}
+QLabel#dropTitle { color: #eef6ff; font-weight: 700; border: none; }
+QLabel#dropHint { color: #8ea5c2; border: none; }
+QLabel#fileStatus { color: #60d9ca; font-weight: 700; border: none; }
+QPushButton#chooseConfig {
+    color: #eef6ff; background: #15395a; border: 1px solid #3a7dad;
+    border-radius: 6px; padding: 7px 16px; font-weight: 700;
+}
+QPushButton#chooseConfig:hover { background: #1d4c76; }
 QFrame#logPanel { background: #07111f; border: 1px solid #284867; border-radius: 8px; }
 QFrame#logHeader { background: #0d1c31; border: none; }
 QLabel#logTitle { color: #eef6ff; font-weight: 700; border: none; }
@@ -124,6 +141,23 @@ QPushButton#dangerButton { color: #172033; background: #e3a5b4; border-color: #c
 QPushButton#dangerButton:hover { background: #d991a3; border-color: #b92f53; }
 QPushButton#saveButton { color: #ffffff; background: #1266d6; border-color: #2f7bed; }
 QPushButton#saveButton:hover { background: #1d7cff; }
+QPushButton#sourceMode {
+    color: #526b88; background: #edf2f6; border: 1px solid #a7bdd2;
+    border-radius: 7px; padding: 9px 14px; font-weight: 700;
+}
+QPushButton#sourceMode:hover { background: #d8e6f2; color: #10233b; }
+QPushButton#sourceMode:checked { color: #ffffff; background: #2879d0; border-color: #1769b7; }
+QFrame#configDropArea {
+    background: #edf2f6; border: 1px dashed #7f9fbc; border-radius: 8px;
+}
+QLabel#dropTitle { color: #172033; font-weight: 700; border: none; }
+QLabel#dropHint { color: #5f7692; border: none; }
+QLabel#fileStatus { color: #087f73; font-weight: 700; border: none; }
+QPushButton#chooseConfig {
+    color: #17324d; background: #dbe7f0; border: 1px solid #8eb2d0;
+    border-radius: 6px; padding: 7px 16px; font-weight: 700;
+}
+QPushButton#chooseConfig:hover { background: #cbddea; }
 QFrame#logPanel { background: #e6edf4; border: 1px solid #9bb4cb; border-radius: 8px; }
 QFrame#logHeader { background: #d5e0ea; border: none; }
 QLabel#logTitle { color: #172033; font-weight: 700; border: none; }

@@ -4,6 +4,7 @@ import os
 import platform
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import time
@@ -91,19 +92,35 @@ I18N = {
         "secure_connection": "Защищенное подключение",
         "connection_time": "Время подключения",
         "change_token_url": "Изменить токен или URL",
+        "connection_settings": "Настройки подключения",
         "log": "Лог",
         "singbox_log": "Лог sing-box",
         "hide": "Скрыть",
         "vpn_data": "Данные VPN",
         "connection_data": "Данные подключения",
         "enter_uuid_url": "Введите UUID и URL сервера.",
+        "choose_connection_source": "Выберите источник конфигурации VPN.",
+        "source_server": "С сервера",
+        "source_local": "Локальный файл",
+        "remote_source_help": "Введите UUID и HTTPS URL сервера.",
+        "local_source_help": "Выберите или перетащите готовый конфиг sing-box.",
+        "choose_config": "Выбрать файл",
+        "drop_config": "Перетащите конфиг сюда",
+        "drop_config_hint": "Подойдёт файл с любым именем",
+        "local_config_ready": "Выбран: {name}",
+        "local_config_stored": "Сохранённый локальный конфиг будет использован.",
+        "local_config_required": "Выберите локальный конфиг sing-box.",
+        "local_config_invalid": "Локальный конфиг не прошёл проверку sing-box check.",
+        "local_config_saved": "Локальный конфиг проверен и сохранён.\n",
+        "local_config_applied": "Локальный config.json проверен и применён.\n",
+        "connection_settings_required": "Требуются настройки подключения",
         "uuid_token": "UUID токен",
         "server_url": "URL сервера",
         "invalid_uuid": "Введите корректный UUID.",
         "invalid_url": "Введите корректный URL сервера: https://",
         "save": "Сохранить",
         "cancel": "Отмена",
-        "token_saved_log": "Токен и URL сервера сохранены.\n",
+        "token_saved_log": "Настройки подключения сохранены.\n",
         "save_data_error": "Не удалось сохранить данные подключения: {error}\n",
         "new_data_next_connect": "Новые данные будут применены при следующем подключении.\n",
         "new_data_connect": "Новые данные будут использованы при подключении.\n",
@@ -208,19 +225,35 @@ I18N = {
         "secure_connection": "Secure connection",
         "connection_time": "Connection time",
         "change_token_url": "Change token or URL",
+        "connection_settings": "Connection settings",
         "log": "Log",
         "singbox_log": "sing-box log",
         "hide": "Hide",
         "vpn_data": "VPN data",
         "connection_data": "Connection data",
         "enter_uuid_url": "Enter UUID and server URL.",
+        "choose_connection_source": "Choose the VPN configuration source.",
+        "source_server": "From server",
+        "source_local": "Local file",
+        "remote_source_help": "Enter the UUID and HTTPS server URL.",
+        "local_source_help": "Choose or drop a ready-to-use sing-box config.",
+        "choose_config": "Choose file",
+        "drop_config": "Drop the config here",
+        "drop_config_hint": "Any source filename is accepted",
+        "local_config_ready": "Selected: {name}",
+        "local_config_stored": "The saved local config will be used.",
+        "local_config_required": "Choose a local sing-box config.",
+        "local_config_invalid": "The local config failed sing-box check.",
+        "local_config_saved": "Local config checked and saved.\n",
+        "local_config_applied": "Local config.json checked and applied.\n",
+        "connection_settings_required": "Connection settings required",
         "uuid_token": "UUID token",
         "server_url": "Server URL",
         "invalid_uuid": "Enter a valid UUID.",
         "invalid_url": "Enter a valid server URL: https://",
         "save": "Save",
         "cancel": "Cancel",
-        "token_saved_log": "Token and server URL saved.\n",
+        "token_saved_log": "Connection settings saved.\n",
         "save_data_error": "Could not save connection data: {error}\n",
         "new_data_next_connect": "New data will be applied on the next connection.\n",
         "new_data_connect": "New data will be used when connecting.\n",
@@ -372,6 +405,7 @@ REPO_ROOT = repo_root()
 APP_SUPPORT = Path.home() / "Library" / "Application Support" / "WorkVPN"
 APP_SUPPORT.mkdir(parents=True, exist_ok=True)
 CONFIG = APP_SUPPORT / "config.json"
+CONFIG_SOURCE_FILE = APP_SUPPORT / "config_source.txt"
 TOKEN_FILE = APP_SUPPORT / "token.txt"
 CONFIG_URL_FILE = APP_SUPPORT / "config_url.txt"
 
@@ -623,6 +657,37 @@ def update_config_from_template(log_func, client_uuid: str, config_url: str) -> 
                 time.sleep(RETRY_DELAY)
     log_func(CONFIG_DOWNLOAD_ERROR + "\n")
     return False
+
+
+def install_local_config(source_path: Path, log_func) -> bool:
+    source = Path(source_path)
+    tmp_path = CONFIG.with_name("config.local.tmp")
+    try:
+        if not source.is_file():
+            raise FileNotFoundError(source)
+        shutil.copyfile(source, tmp_path)
+        if not validate_singbox_config(tmp_path, log_func):
+            raise RuntimeError("sing-box check failed")
+        os.replace(tmp_path, CONFIG)
+        log_func(tr("local_config_saved"))
+        return True
+    except Exception as error:
+        log_func(tr("config_prepare_error", error=error))
+        tmp_path.unlink(missing_ok=True)
+        return False
+
+
+def prepare_local_config(log_func) -> bool:
+    try:
+        if not CONFIG.is_file():
+            raise FileNotFoundError(CONFIG)
+        if not validate_singbox_config(CONFIG, log_func):
+            raise RuntimeError("sing-box check failed")
+        log_func(tr("local_config_applied"))
+        return True
+    except Exception as error:
+        log_func(tr("config_prepare_error", error=error))
+        return False
 
 
 def create_tray_image(status_color="red"):

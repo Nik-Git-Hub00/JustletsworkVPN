@@ -73,21 +73,24 @@ jobs:
         include:
           - name: macos-arm64
             runs_on: macos-14
-            script: ./scripts/build_macos.sh
+            architecture: arm64
+            python_architecture: arm64
           - name: macos-x64
             runs_on: macos-14
-            script: ./scripts/build_macos_intel_from_arm.sh
+            architecture: x64
+            python_architecture: x64
     runs-on: ${{ matrix.runs_on }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"
+          architecture: ${{ matrix.python_architecture }}
       - name: Build ${{ matrix.name }}
         env:
           APP_VERSION: ${{ needs.version.outputs.version }}
           APP_UPDATE_REPO: ${{ github.repository }}
-        run: ${{ matrix.script }}
+        run: ./scripts/build_macos.sh ${{ matrix.architecture }}
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
@@ -102,15 +105,20 @@ jobs:
       matrix:
         include:
           - name: windows-amd64
-            script: ./scripts/build_windows.ps1
+            runs_on: windows-latest
+            architecture: amd64
+            python_architecture: x64
           - name: windows-arm64
-            script: ./scripts/build_windows_arm64.ps1
-    runs-on: windows-latest
+            runs_on: windows-11-arm
+            architecture: arm64
+            python_architecture: arm64
+    runs-on: ${{ matrix.runs_on }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"
+          architecture: ${{ matrix.python_architecture }}
       - name: Install Inno Setup
         shell: pwsh
         run: choco install innosetup --no-progress -y
@@ -119,7 +127,7 @@ jobs:
         env:
           APP_VERSION: ${{ needs.version.outputs.version }}
           APP_UPDATE_REPO: ${{ github.repository }}
-        run: ${{ matrix.script }}
+        run: ./scripts/build_windows.ps1 -Architecture ${{ matrix.architecture }}
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}

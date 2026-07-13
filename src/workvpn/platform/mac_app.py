@@ -4,6 +4,7 @@ import sys
 import threading
 import time
 import uuid
+from pathlib import Path
 from urllib.parse import urlparse
 
 from PySide6.QtCore import (
@@ -23,9 +24,12 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QDesktopServices, QColor, QFont, QIcon, QKeySequence, QPainter, QPixmap, QRegion, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
+    QButtonGroup,
     QDialog,
+    QFileDialog,
     QFrame,
     QGraphicsDropShadowEffect,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -34,6 +38,7 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QSizePolicy,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -43,6 +48,8 @@ from .mac_backend import (
     APP_TITLE,
     BUNDLED_SING_BOX,
     CONFIG_DOWNLOAD_ERROR,
+    CONFIG,
+    CONFIG_SOURCE_FILE,
     CONFIG_URL_FILE,
     GREEN,
     HELPER_PATH,
@@ -62,12 +69,14 @@ from .mac_backend import (
     helper_output,
     helper_ready,
     install_helper_command,
+    install_local_config,
     launchd_is_running,
     pystray,
     resource_path,
     run_admin_shell,
     run_helper,
     tr,
+    prepare_local_config,
     update_config_from_template,
 )
 from workvpn.update_check import check_latest_release, disable_update_checks, update_checks_disabled
@@ -166,8 +175,64 @@ class PowerButton(QPushButton):
         self.setIconSize(QSize(diameter, diameter))
 
 
+class LocalConfigDropArea(QFrame):
+    file_selected = Signal(str)
+
+    def __init__(self, has_stored_config=False, parent=None):
+        super().__init__(parent)
+        self.setObjectName("configDropArea")
+        self.setAcceptDrops(True)
+        self.selected_path = None
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(18, 16, 18, 16)
+        layout.setSpacing(5)
+        self.title = QLabel(tr("drop_config"))
+        self.title.setObjectName("dropTitle")
+        self.title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.hint = QLabel(tr("drop_config_hint"))
+        self.hint.setObjectName("dropHint")
+        self.hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.status = QLabel(tr("local_config_stored") if has_stored_config else "")
+        self.status.setObjectName("fileStatus")
+        self.status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.status.setWordWrap(True)
+        self.status.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.status.setMinimumHeight(40)
+        choose = QPushButton(tr("choose_config"))
+        choose.setObjectName("chooseConfig")
+        choose.setMinimumSize(132, 34)
+        choose.clicked.connect(self.choose_file)
+        layout.addWidget(self.title)
+        layout.addWidget(self.hint)
+        layout.addWidget(self.status)
+        layout.addSpacing(10)
+        layout.addWidget(choose, 0, Qt.AlignmentFlag.AlignCenter)
+
+    def choose_file(self):
+        path, _ = QFileDialog.getOpenFileName(self, tr("choose_config"), "", "JSON (*.json);;All files (*)")
+        if path:
+            self.set_file(path)
+
+    def set_file(self, path):
+        self.selected_path = path
+        self.status.setText(tr("local_config_ready", name=Path(path).name))
+        self.file_selected.emit(path)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls() and any(url.isLocalFile() for url in event.mimeData().urls()):
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        for url in event.mimeData().urls():
+            if url.isLocalFile():
+                self.set_file(url.toLocalFile())
+                event.acceptProposedAction()
+                return
+
+
 class CredentialsDialog(QDialog):
-    def __init__(self, token="", config_url="", theme=DARK, parent=None):
+    def __init__(self, token="", config_url="", source="remote", has_local_config=False, theme=DARK, parent=None):
         super().__init__(parent)
         self.setWindowTitle(tr("vpn_data"))
         self.setModal(True)
@@ -177,6 +242,9 @@ class CredentialsDialog(QDialog):
         self.setObjectName("credentialsDialog")
         self.result_token = None
         self.result_url = None
+        self.result_source = None
+        self.result_local_path = None
+        self.has_local_config = has_local_config
 
         root = QVBoxLayout(self)
         root.setContentsMargins(26, 24, 26, 24)
@@ -186,24 +254,61 @@ class CredentialsDialog(QDialog):
         title.setObjectName("dialogTitle")
         root.addWidget(title)
 
-        subtitle = QLabel(tr("enter_uuid_url"))
+        subtitle = QLabel(tr("choose_connection_source"))
         subtitle.setObjectName("dialogSubtitle")
         subtitle.setWordWrap(True)
         root.addWidget(subtitle)
-        root.addSpacing(8)
+        root.addSpacing(6)
 
-        root.addWidget(self._field_label(tr("uuid_token")))
+        modes = QHBoxLayout()
+        modes.setSpacing(8)
+        self.remote_mode = QPushButton(tr("source_server"))
+        self.local_mode = QPushButton(tr("source_local"))
+        self.source_group = QButtonGroup(self)
+        self.source_group.setExclusive(True)
+        for button in (self.remote_mode, self.local_mode):
+            button.setObjectName("sourceMode")
+            button.setCheckable(True)
+            button.setCursor(Qt.CursorShape.PointingHandCursor)
+            self.source_group.addButton(button)
+            modes.addWidget(button)
+        root.addLayout(modes)
+        root.addSpacing(6)
+
+        self.pages = QStackedWidget()
+        remote_page = QWidget()
+        remote_layout = QVBoxLayout(remote_page)
+        remote_layout.setContentsMargins(0, 0, 0, 0)
+        remote_layout.setSpacing(9)
+        remote_help = QLabel(tr("remote_source_help"))
+        remote_help.setObjectName("dialogSubtitle")
+        remote_layout.addWidget(remote_help)
+        remote_layout.addWidget(self._field_label(tr("uuid_token")))
         self.token_edit = QLineEdit(token)
         self.token_edit.setObjectName("credentialField")
         self.token_edit.setClearButtonEnabled(True)
-        root.addWidget(self.token_edit)
+        remote_layout.addWidget(self.token_edit)
 
-        root.addSpacing(5)
-        root.addWidget(self._field_label(tr("server_url")))
+        remote_layout.addWidget(self._field_label(tr("server_url")))
         self.url_edit = QLineEdit(config_url)
         self.url_edit.setObjectName("credentialField")
         self.url_edit.setClearButtonEnabled(True)
-        root.addWidget(self.url_edit)
+        remote_layout.addWidget(self.url_edit)
+
+        local_page = QWidget()
+        local_layout = QVBoxLayout(local_page)
+        local_layout.setContentsMargins(0, 0, 0, 0)
+        local_layout.setSpacing(9)
+        local_help = QLabel(tr("local_source_help"))
+        local_help.setObjectName("dialogSubtitle")
+        local_help.setWordWrap(True)
+        local_layout.addWidget(local_help)
+        self.drop_area = LocalConfigDropArea(has_local_config)
+        local_layout.addWidget(self.drop_area)
+
+        self.pages.addWidget(remote_page)
+        self.pages.addWidget(local_page)
+        root.addWidget(self.pages)
 
         self.error_label = QLabel("")
         self.error_label.setObjectName("fieldError")
@@ -221,8 +326,14 @@ class CredentialsDialog(QDialog):
         buttons.addWidget(cancel)
         root.addLayout(buttons)
 
-        self.token_edit.selectAll()
-        self.token_edit.setFocus()
+        self.remote_mode.toggled.connect(lambda checked: self.pages.setCurrentIndex(0) if checked else None)
+        self.local_mode.toggled.connect(lambda checked: self.pages.setCurrentIndex(1) if checked else None)
+        if source == "local":
+            self.local_mode.setChecked(True)
+        else:
+            self.remote_mode.setChecked(True)
+            self.token_edit.selectAll()
+            self.token_edit.setFocus()
         self.adjustSize()
         self.setFixedSize(self.size())
 
@@ -242,6 +353,14 @@ class CredentialsDialog(QDialog):
             QTimer.singleShot(0, self.showNormal)
 
     def validate_and_accept(self):
+        if self.local_mode.isChecked():
+            if not self.drop_area.selected_path and not self.has_local_config:
+                self.error_label.setText(tr("local_config_required"))
+                return
+            self.result_source = "local"
+            self.result_local_path = self.drop_area.selected_path
+            self.accept()
+            return
         token = self.token_edit.text().strip()
         config_url = self.url_edit.text().strip()
         try:
@@ -255,6 +374,7 @@ class CredentialsDialog(QDialog):
             return
         self.result_token = token
         self.result_url = config_url
+        self.result_source = "remote"
         self.accept()
 
 
@@ -271,6 +391,7 @@ class WorkVpnWindow(QMainWindow):
         self.connection_state = "disconnected"
         self.client_uuid = self.load_saved_token()
         self.config_url = self.load_saved_config_url()
+        self.config_source = self.load_saved_config_source()
         self.tray_icon = None
         self.connected_since = None
         self.vpn_ip = None
@@ -300,7 +421,7 @@ class WorkVpnWindow(QMainWindow):
         self.timer_tick.timeout.connect(self.update_timer)
         self.timer_tick.start(1000)
 
-        QTimer.singleShot(250, self.request_token_on_start)
+        QTimer.singleShot(250, self.request_connection_settings_on_start)
         QTimer.singleShot(1200, self.check_for_updates)
         self.log_safe(f"Bundled sing-box: {BUNDLED_SING_BOX}\n")
         self.log_safe(f"Helper: {HELPER_PATH}\n")
@@ -360,22 +481,30 @@ class WorkVpnWindow(QMainWindow):
         self.update_banner = QFrame()
         self.update_banner.setObjectName("updateBanner")
         self.update_banner.hide()
-        update_layout = QHBoxLayout(self.update_banner)
-        update_layout.setContentsMargins(12, 8, 10, 8)
-        update_layout.setSpacing(10)
-        update_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        self.update_layout = QGridLayout(self.update_banner)
+        self.update_layout.setContentsMargins(12, 8, 10, 8)
+        self.update_layout.setHorizontalSpacing(10)
+        self.update_layout.setVerticalSpacing(6)
         self.update_text = QLabel("")
         self.update_text.setObjectName("updateText")
-        self.update_text.setWordWrap(True)
+        self.update_text.setWordWrap(False)
+        self.update_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.update_text.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self.update_open_btn = QPushButton(tr("update_open"))
         self.update_open_btn.setObjectName("updateOpen")
         self.update_disable_btn = QPushButton(tr("update_disable"))
         self.update_disable_btn.setObjectName("updateDisable")
         self.update_open_btn.clicked.connect(self.open_update_url)
         self.update_disable_btn.clicked.connect(self.disable_updates)
-        update_layout.addWidget(self.update_text, 1, Qt.AlignmentFlag.AlignVCenter)
-        update_layout.addWidget(self.update_open_btn, 0, Qt.AlignmentFlag.AlignVCenter)
-        update_layout.addWidget(self.update_disable_btn, 0, Qt.AlignmentFlag.AlignVCenter)
+        self.update_buttons = QWidget()
+        update_buttons_layout = QHBoxLayout(self.update_buttons)
+        update_buttons_layout.setContentsMargins(0, 0, 0, 0)
+        update_buttons_layout.setSpacing(10)
+        update_buttons_layout.addStretch(1)
+        update_buttons_layout.addWidget(self.update_open_btn)
+        update_buttons_layout.addWidget(self.update_disable_btn)
+        update_buttons_layout.addStretch(1)
+        self.layout_update_banner(False)
         content_layout.addWidget(self.update_banner)
         content_layout.addSpacing(12)
 
@@ -414,12 +543,12 @@ class WorkVpnWindow(QMainWindow):
         buttons_layout.setContentsMargins(0, 0, 0, 0)
         buttons_layout.setSpacing(9)
         light_theme = self.theme == LIGHT
-        self.token_btn = ActionButton(tr("change_token_url"), "ui_token.png", light_theme=light_theme)
+        self.token_btn = ActionButton(tr("connection_settings"), "ui_token.png", light_theme=light_theme)
         self.log_btn = ActionButton(tr("log"), "ui_log.png", light_theme=light_theme)
         self.exit_btn = ActionButton(tr("exit"), "ui_cancel.png", danger=True, light_theme=light_theme)
         for button in (self.token_btn, self.log_btn, self.exit_btn):
             button.set_icon_text_spacing(1)
-        self.token_btn.clicked.connect(self.change_token)
+        self.token_btn.clicked.connect(self.change_connection_settings)
         self.log_btn.clicked.connect(lambda _checked=False: self.toggle_log_panel())
         self.exit_btn.clicked.connect(self.exit_app)
         buttons_layout.addWidget(self.token_btn)
@@ -506,6 +635,13 @@ class WorkVpnWindow(QMainWindow):
         timer_size = max(34, min(46, round(w * 0.082)))
         logo_size = max(104, min(142, round(h * 0.16)))
         power_size = max(118, min(154, round(h * 0.18)))
+        compact_update = self.update_banner.isVisible() and (self.width() < 480 or self.height() <= 680)
+        if compact_update:
+            title_size = min(title_size, 30)
+            subtitle_size = min(subtitle_size, 14)
+            timer_size = min(timer_size, 32)
+            logo_size = min(logo_size, 88)
+            power_size = min(power_size, 96)
         self.title_label.setFont(QFont("Helvetica", title_size, QFont.Weight.Bold))
         self.subtitle_label.setFont(QFont("Helvetica", subtitle_size))
         self.time_caption.setFont(QFont("Helvetica", max(14, min(17, round(w * 0.03))), QFont.Weight.Bold))
@@ -522,18 +658,31 @@ class WorkVpnWindow(QMainWindow):
         self.title_spacer.setFixedSize(theme_size, theme_size)
         self.theme_btn.setFixedSize(theme_size, theme_size)
         self.theme_btn.setIconSize(QSize(round(theme_size * 0.64), round(theme_size * 0.64)))
-        button_height = max(48, min(58, round(h * 0.066)))
+        button_height = 44 if compact_update else max(48, min(58, round(h * 0.066)))
         icon_size = 21
         for button in (self.token_btn, self.log_btn, self.exit_btn):
             button.setMinimumHeight(button_height)
             button.setMaximumHeight(button_height)
             button.setIconSize(QSize(icon_size, icon_size))
         if hasattr(self, "update_text"):
+            self.layout_update_banner(compact_update)
             update_font = QFont("Helvetica", max(11, min(13, round(w * 0.024))), QFont.Weight.Bold)
             self.update_text.setFont(update_font)
             for button in (self.update_open_btn, self.update_disable_btn):
                 button.setFixedHeight(max(30, min(34, round(w * 0.06))))
                 button.setFont(QFont("Helvetica", max(10, min(12, round(w * 0.022))), QFont.Weight.Bold))
+            update_button_width = max(self.update_open_btn.sizeHint().width(), self.update_disable_btn.sizeHint().width())
+            self.update_open_btn.setFixedWidth(update_button_width)
+            self.update_disable_btn.setFixedWidth(update_button_width)
+
+    def layout_update_banner(self, _compact):
+        for widget in (self.update_text, self.update_buttons):
+            self.update_layout.removeWidget(widget)
+        self.update_layout.addWidget(self.update_text, 0, 0, 1, 2)
+        self.update_layout.addWidget(self.update_buttons, 1, 0, 1, 2)
+        self.update_layout.setColumnStretch(0, 1)
+        self.update_layout.setColumnStretch(1, 1)
+        self.update_layout.setColumnStretch(2, 0)
 
     def closeEvent(self, event):
         if self.allow_close:
@@ -720,31 +869,61 @@ class WorkVpnWindow(QMainWindow):
         except Exception:
             return None
 
-    def prompt_for_token(self, force=False):
-        if self.client_uuid and self.config_url and not force:
+    def load_saved_config_source(self):
+        try:
+            source = CONFIG_SOURCE_FILE.read_text(encoding="utf-8").strip().lower()
+            if source in {"remote", "local"}:
+                return source
+        except Exception:
+            pass
+        return "remote"
+
+    def connection_settings_ready(self):
+        if self.config_source == "local":
+            return CONFIG.is_file()
+        return bool(self.client_uuid and self.config_url)
+
+    def prompt_for_connection_settings(self, force=False):
+        if self.connection_settings_ready() and not force:
             return True
-        dialog = CredentialsDialog(self.client_uuid or "", self.config_url or "", self.theme, self)
+        dialog = CredentialsDialog(
+            self.client_uuid or "",
+            self.config_url or "",
+            self.config_source,
+            self.config_source == "local" and CONFIG.is_file(),
+            self.theme,
+            self,
+        )
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return False
-        self.client_uuid = dialog.result_token
-        self.config_url = dialog.result_url
         try:
-            TOKEN_FILE.write_text(self.client_uuid + "\n", encoding="utf-8")
-            CONFIG_URL_FILE.write_text(self.config_url + "\n", encoding="utf-8")
+            if dialog.result_source == "local" and dialog.result_local_path:
+                if not install_local_config(Path(dialog.result_local_path), self.log_safe):
+                    self.bridge.error.emit(tr("error"), tr("local_config_invalid"))
+                    return False
+            if dialog.result_source == "remote":
+                self.client_uuid = dialog.result_token
+                self.config_url = dialog.result_url
+                TOKEN_FILE.write_text(self.client_uuid + "\n", encoding="utf-8")
+                CONFIG_URL_FILE.write_text(self.config_url + "\n", encoding="utf-8")
+            self.config_source = dialog.result_source
+            CONFIG_SOURCE_FILE.write_text(self.config_source + "\n", encoding="utf-8")
             self.write_log(tr("token_saved_log"))
         except Exception as error:
             self.write_log(tr("save_data_error", error=error))
+            self.bridge.error.emit(tr("error"), tr("save_data_error", error=error).strip())
+            return False
         return True
 
-    def request_token_on_start(self):
-        if not self.client_uuid or not self.config_url:
-            if not self.prompt_for_token():
-                self.set_status("disconnected", tr("token_required"), ORANGE, "orange", True, True)
+    def request_connection_settings_on_start(self):
+        if not self.connection_settings_ready():
+            if not self.prompt_for_connection_settings():
+                self.set_status("disconnected", tr("connection_settings_required"), ORANGE, "orange", True, True)
 
-    def change_token(self):
+    def change_connection_settings(self):
         if self.is_exiting:
             return
-        if self.prompt_for_token(force=True):
+        if self.prompt_for_connection_settings(force=True):
             self.write_log(tr("new_data_next_connect") if self.connection_state == "connected" else tr("new_data_connect"))
 
     def toggle_vpn(self):
@@ -792,8 +971,8 @@ class WorkVpnWindow(QMainWindow):
     def start_vpn(self):
         if self.connection_state != "disconnected" or self.is_exiting:
             return
-        if not self.prompt_for_token():
-            self.set_status("disconnected", tr("token_required"), ORANGE, "orange", True, True)
+        if not self.prompt_for_connection_settings():
+            self.set_status("disconnected", tr("connection_settings_required"), ORANGE, "orange", True, True)
             return
         self.set_status("busy", tr("checking_config"), ORANGE, "orange", False, True)
         threading.Thread(target=self.prepare_and_start_vpn, daemon=True).start()
@@ -804,9 +983,15 @@ class WorkVpnWindow(QMainWindow):
             self.set_disconnected()
             return
         before_ip = self.get_public_ip_for_log(tr("before_ip"))
-        if not update_config_from_template(self.log_safe, self.client_uuid, self.config_url):
+        config_ready = (
+            prepare_local_config(self.log_safe)
+            if self.config_source == "local"
+            else update_config_from_template(self.log_safe, self.client_uuid, self.config_url)
+        )
+        if not config_ready:
             self.set_disconnected()
-            self.bridge.error.emit(tr("error"), CONFIG_DOWNLOAD_ERROR)
+            error_text = tr("local_config_invalid") if self.config_source == "local" else CONFIG_DOWNLOAD_ERROR
+            self.bridge.error.emit(tr("error"), error_text)
             return
         self.log_safe(tr("config_ok_starting"))
         if not helper_ready():

@@ -2,11 +2,15 @@ import json
 import locale
 import os
 import platform
+import queue
 import re
+import secrets
+import shutil
+import socket
 import subprocess
 import ctypes
 import sys
-import tempfile
+import threading
 import time
 import urllib.request
 from urllib.parse import urlparse
@@ -17,7 +21,7 @@ try:
 except Exception:
     pystray = None
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw
 
 try:
     import ssl
@@ -28,6 +32,7 @@ except Exception:
 
 
 CUSTOM_USER_AGENT = "SingBoxVPN-Client/1.0-private"
+ELEVATED_WORKER_ARG = "--workvpn-elevated-worker"
 
 
 def detect_language() -> str:
@@ -78,19 +83,35 @@ I18N = {
         "secure_connection": "Защищенное подключение",
         "connection_time": "Время подключения",
         "change_token_url": "Изменить токен или URL",
+        "connection_settings": "Настройки подключения",
         "log": "Лог",
         "singbox_log": "Лог sing-box",
         "hide": "Скрыть",
         "vpn_data": "Данные VPN",
         "connection_data": "Данные подключения",
         "enter_uuid_url": "Введите UUID и URL сервера.",
+        "choose_connection_source": "Выберите источник конфигурации VPN.",
+        "source_server": "С сервера",
+        "source_local": "Локальный файл",
+        "remote_source_help": "Введите UUID и HTTPS URL сервера.",
+        "local_source_help": "Выберите или перетащите готовый конфиг sing-box.",
+        "choose_config": "Выбрать файл",
+        "drop_config": "Перетащите конфиг сюда",
+        "drop_config_hint": "Подойдёт файл с любым именем",
+        "local_config_ready": "Выбран: {name}",
+        "local_config_stored": "Сохранённый локальный конфиг будет использован.",
+        "local_config_required": "Выберите локальный конфиг sing-box.",
+        "local_config_invalid": "Локальный конфиг не прошёл проверку sing-box check.",
+        "local_config_saved": "Локальный конфиг проверен и сохранён.\n",
+        "local_config_applied": "Локальный config.json проверен и применён.\n",
+        "connection_settings_required": "Требуются настройки подключения",
         "uuid_token": "UUID токен",
         "server_url": "URL сервера",
         "invalid_uuid": "Введите корректный UUID.",
         "invalid_url": "Введите корректный URL сервера: https://",
         "save": "Сохранить",
         "cancel": "Отмена",
-        "token_saved_log": "Токен и URL сервера сохранены.\n",
+        "token_saved_log": "Настройки подключения сохранены.\n",
         "save_data_error": "Не удалось сохранить данные подключения: {error}\n",
         "new_data_next_connect": "Новые данные будут применены при следующем подключении.\n",
         "new_data_connect": "Новые данные будут использованы при подключении.\n",
@@ -195,19 +216,35 @@ I18N = {
         "secure_connection": "Secure connection",
         "connection_time": "Connection time",
         "change_token_url": "Change token or URL",
+        "connection_settings": "Connection settings",
         "log": "Log",
         "singbox_log": "sing-box log",
         "hide": "Hide",
         "vpn_data": "VPN data",
         "connection_data": "Connection data",
         "enter_uuid_url": "Enter UUID and server URL.",
+        "choose_connection_source": "Choose the VPN configuration source.",
+        "source_server": "From server",
+        "source_local": "Local file",
+        "remote_source_help": "Enter the UUID and HTTPS server URL.",
+        "local_source_help": "Choose or drop a ready-to-use sing-box config.",
+        "choose_config": "Choose file",
+        "drop_config": "Drop the config here",
+        "drop_config_hint": "Any source filename is accepted",
+        "local_config_ready": "Selected: {name}",
+        "local_config_stored": "The saved local config will be used.",
+        "local_config_required": "Choose a local sing-box config.",
+        "local_config_invalid": "The local config failed sing-box check.",
+        "local_config_saved": "Local config checked and saved.\n",
+        "local_config_applied": "Local config.json checked and applied.\n",
+        "connection_settings_required": "Connection settings required",
         "uuid_token": "UUID token",
         "server_url": "Server URL",
         "invalid_uuid": "Enter a valid UUID.",
         "invalid_url": "Enter a valid server URL: https://",
         "save": "Save",
         "cancel": "Cancel",
-        "token_saved_log": "Token and server URL saved.\n",
+        "token_saved_log": "Connection settings saved.\n",
         "save_data_error": "Could not save connection data: {error}\n",
         "new_data_next_connect": "New data will be applied on the next connection.\n",
         "new_data_connect": "New data will be used when connecting.\n",
@@ -351,6 +388,7 @@ REPO_ROOT = repo_root()
 APP_SUPPORT = Path(os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA") or APP_DIR) / "WorkVPN"
 APP_SUPPORT.mkdir(parents=True, exist_ok=True)
 CONFIG = APP_SUPPORT / "config.json"
+CONFIG_SOURCE_FILE = APP_SUPPORT / "config_source.txt"
 TOKEN_FILE = APP_SUPPORT / "token.txt"
 CONFIG_URL_FILE = APP_SUPPORT / "config_url.txt"
 
@@ -386,59 +424,6 @@ def find_icon_file() -> Path:
 
 
 ICON_FILE = find_icon_file()
-WINDOW_ICON_CACHE = None
-
-
-def load_icon_source_image():
-    candidates = (
-        resource_path("assets/workvpn_icon_imagegen_source.png"),
-        resource_path("assets/workvpn_icon_tile_source.png"),
-        ICON_FILE,
-    )
-    for source in candidates:
-        try:
-            icon = Image.open(source)
-            if hasattr(icon, "ico"):
-                largest_size = max(icon.ico.sizes(), key=lambda item: item[0] * item[1])
-                icon = icon.ico.getimage(largest_size)
-            return icon.convert("RGBA")
-        except Exception:
-            continue
-    return None
-
-
-def render_system_icon_layer(source, size: int):
-    image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    icon = source.copy()
-    icon.thumbnail((size, size), Image.LANCZOS)
-    image.alpha_composite(icon, ((size - icon.width) // 2, (size - icon.height) // 2))
-    if size <= 64:
-        image = image.filter(ImageFilter.UnsharpMask(radius=0.45, percent=185, threshold=1))
-    if size <= 24:
-        image = image.filter(ImageFilter.UnsharpMask(radius=0.30, percent=120, threshold=0))
-    return image
-
-
-def get_windows_system_icon_file():
-    global WINDOW_ICON_CACHE
-    if WINDOW_ICON_CACHE and WINDOW_ICON_CACHE.exists():
-        return WINDOW_ICON_CACHE
-
-    source = load_icon_source_image()
-    if source is None:
-        return ICON_FILE
-
-    try:
-        cache_dir = Path(tempfile.gettempdir()) / "WorkVPN"
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        cache_path = cache_dir / "workvpn_system_icon.ico"
-        sizes = [16, 20, 24, 32, 40, 48, 64, 128, 256]
-        layers = [render_system_icon_layer(source, size) for size in sizes]
-        layers[-1].save(cache_path, format="ICO", sizes=[(size, size) for size in sizes], append_images=layers[:-1])
-        WINDOW_ICON_CACHE = cache_path
-        return cache_path
-    except Exception:
-        return ICON_FILE
 
 
 def windows_runtime_dir() -> str:
@@ -585,6 +570,13 @@ def stop_singbox_process(process, log_func=None, timeout=8):
         if log_func:
             log_func(message)
 
+    request_stop = getattr(process, "request_stop", None)
+    if callable(request_stop):
+        log(tr("soft_stop"))
+        if request_stop(timeout=timeout):
+            return
+        raise RuntimeError("elevated worker did not stop sing-box")
+
     if os.name == "nt":
         log(tr("soft_stop"))
         if send_windows_ctrl_break(process):
@@ -697,6 +689,37 @@ def update_config_from_template(log_func, client_uuid: str, config_url: str) -> 
     return False
 
 
+def install_local_config(source_path: Path, log_func) -> bool:
+    source = Path(source_path)
+    tmp_path = CONFIG.with_name("config.local.tmp")
+    try:
+        if not source.is_file():
+            raise FileNotFoundError(source)
+        shutil.copyfile(source, tmp_path)
+        if not validate_singbox_config(tmp_path, log_func):
+            raise RuntimeError("sing-box check failed")
+        os.replace(tmp_path, CONFIG)
+        log_func(tr("local_config_saved"))
+        return True
+    except Exception as error:
+        log_func(tr("config_prepare_error", error=error))
+        tmp_path.unlink(missing_ok=True)
+        return False
+
+
+def prepare_local_config(log_func) -> bool:
+    try:
+        if not CONFIG.is_file():
+            raise FileNotFoundError(CONFIG)
+        if not validate_singbox_config(CONFIG, log_func):
+            raise RuntimeError("sing-box check failed")
+        log_func(tr("local_config_applied"))
+        return True
+    except Exception as error:
+        log_func(tr("config_prepare_error", error=error))
+        return False
+
+
 def create_tray_image(status_color="red"):
     filename = f"tray_icon_{status_color}.png"
     try:
@@ -726,13 +749,290 @@ def is_admin() -> bool:
         return False
 
 
-def relaunch_as_admin():
+def _send_worker_packet(sock, payload, lock):
+    data = (json.dumps(payload, ensure_ascii=False) + "\n").encode("utf-8")
+    with lock:
+        sock.sendall(data)
+
+
+def _launch_elevated_worker(port: int, token: str):
     if getattr(sys, "frozen", False):
-        params = " ".join(f'"{arg}"' for arg in sys.argv[1:])
+        executable = sys.executable
+        arguments = [ELEVATED_WORKER_ARG, str(port), token]
     else:
-        params = " ".join(f'"{arg}"' for arg in sys.argv)
-    ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, params, str(APP_DIR), 1)
-    sys.exit(0)
+        executable = sys.executable
+        arguments = [str(Path(sys.argv[0]).resolve()), ELEVATED_WORKER_ARG, str(port), token]
+    params = subprocess.list2cmdline(arguments)
+    shell_execute = ctypes.windll.shell32.ShellExecuteW
+    shell_execute.restype = ctypes.c_void_p
+    result = shell_execute(None, "runas", executable, params, str(APP_DIR), 0)
+    result_code = int(result or 0)
+    if result_code <= 32:
+        raise RuntimeError(f"UAC launch failed ({result_code})")
+
+
+class ElevatedSingBoxWorker:
+    """Keep the Qt GUI unelevated while sing-box runs in an elevated peer process."""
+
+    def __init__(self, log_func):
+        self.log_func = log_func
+        self.stdout = None
+        self.returncode = 0
+        self._socket = None
+        self._send_lock = threading.Lock()
+        self._connect_lock = threading.Lock()
+        self._ready = threading.Event()
+        self._started = threading.Event()
+        self._finished = threading.Event()
+        self._finished.set()
+        self._running = False
+        self._start_error = None
+
+    def _ensure_connected(self):
+        if self._socket is not None:
+            return
+        with self._connect_lock:
+            if self._socket is not None:
+                return
+            token = secrets.token_hex(32)
+            listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            listener.bind(("127.0.0.1", 0))
+            listener.listen(1)
+            listener.settimeout(60)
+            self._ready.clear()
+            accepted_connection = None
+            try:
+                _launch_elevated_worker(listener.getsockname()[1], token)
+                accepted_connection, _ = listener.accept()
+                accepted_connection.settimeout(10)
+                auth_file = accepted_connection.makefile("r", encoding="utf-8", newline="\n")
+                auth_line = auth_file.readline()
+                auth_file.close()
+                auth = json.loads(auth_line) if auth_line else {}
+                if not secrets.compare_digest(str(auth.get("token", "")), token):
+                    accepted_connection.close()
+                    raise RuntimeError("elevated worker authentication failed")
+                accepted_connection.settimeout(None)
+                self._socket = accepted_connection
+                threading.Thread(target=self._read_events, daemon=True).start()
+                self._send({"command": "authenticated"})
+                if not self._ready.wait(10):
+                    raise RuntimeError("elevated worker did not become ready")
+            except Exception:
+                connection = self._socket or accepted_connection
+                self._socket = None
+                if connection is not None:
+                    try:
+                        connection.close()
+                    except Exception:
+                        pass
+                raise
+            finally:
+                listener.close()
+
+    def _read_events(self):
+        buffer = b""
+        try:
+            while self._socket is not None:
+                chunk = self._socket.recv(65536)
+                if not chunk:
+                    break
+                buffer += chunk
+                while b"\n" in buffer:
+                    line, buffer = buffer.split(b"\n", 1)
+                    if not line:
+                        continue
+                    self._handle_event(json.loads(line.decode("utf-8")))
+        except Exception as error:
+            if self._socket is not None:
+                self.log_func(f"Elevated worker connection error: {error}\n")
+        finally:
+            self._socket = None
+            if self._running:
+                self.returncode = 1
+                self._running = False
+                self._finished.set()
+            elif not self._started.is_set():
+                self._start_error = "elevated worker disconnected before sing-box started"
+                self.returncode = 1
+                self._finished.set()
+            self._ready.set()
+            self._started.set()
+
+    def _handle_event(self, event):
+        kind = event.get("event")
+        if kind == "ready":
+            self._ready.set()
+        elif kind == "started":
+            self._running = True
+            self.returncode = None
+            self._started.set()
+        elif kind == "log":
+            self.log_func(str(event.get("text", "")))
+        elif kind == "error":
+            self._start_error = str(event.get("message", "unknown elevated worker error"))
+            self._started.set()
+        elif kind == "exited":
+            self.returncode = int(event.get("code", 1))
+            self._running = False
+            self._finished.set()
+
+    def _send(self, payload):
+        if self._socket is None:
+            raise RuntimeError("elevated worker is not connected")
+        _send_worker_packet(self._socket, payload, self._send_lock)
+
+    def start(self, config_path: Path, timeout=20):
+        self._ensure_connected()
+        self._start_error = None
+        self.returncode = None
+        self._running = False
+        self._started.clear()
+        self._finished.clear()
+        self._send({"command": "start", "config": str(config_path)})
+        if not self._started.wait(timeout):
+            raise RuntimeError("elevated worker did not start sing-box")
+        if self._start_error:
+            self.returncode = 1
+            self._finished.set()
+            raise RuntimeError(self._start_error)
+
+    def poll(self):
+        return None if self._running else self.returncode
+
+    def wait(self, timeout=None):
+        if not self._finished.wait(timeout):
+            raise subprocess.TimeoutExpired("elevated sing-box", timeout)
+        return self.returncode
+
+    def request_stop(self, timeout=8):
+        if not self._running:
+            return True
+        self._send({"command": "stop"})
+        return self._finished.wait(timeout + 8)
+
+    def shutdown(self):
+        sock = self._socket
+        if sock is None:
+            return
+        try:
+            self._send({"command": "shutdown"})
+        except Exception:
+            pass
+        try:
+            sock.shutdown(socket.SHUT_RDWR)
+        except Exception:
+            pass
+        sock.close()
+        self._socket = None
+
+
+def elevated_worker_main(port: int, token: str) -> int:
+    if os.name != "nt" or not is_admin():
+        return 5
+    sock = socket.create_connection(("127.0.0.1", int(port)), timeout=20)
+    sock.settimeout(None)
+    send_lock = threading.Lock()
+    commands = queue.Queue()
+    process = None
+
+    def send(payload):
+        _send_worker_packet(sock, payload, send_lock)
+
+    def read_commands():
+        buffer = b""
+        try:
+            while True:
+                chunk = sock.recv(65536)
+                if not chunk:
+                    break
+                buffer += chunk
+                while b"\n" in buffer:
+                    line, buffer = buffer.split(b"\n", 1)
+                    if line:
+                        commands.put(json.loads(line.decode("utf-8")))
+        finally:
+            commands.put({"command": "shutdown"})
+
+    def stream_logs(active_process):
+        if not active_process.stdout:
+            return
+        try:
+            for line in active_process.stdout:
+                send({"event": "log", "text": clean_log(line)})
+        except Exception:
+            pass
+
+    send({"token": token})
+    auth_buffer = b""
+    while b"\n" not in auth_buffer:
+        chunk = sock.recv(4096)
+        if not chunk:
+            return 1
+        auth_buffer += chunk
+    auth_line, pending = auth_buffer.split(b"\n", 1)
+    auth_message = json.loads(auth_line.decode("utf-8")) if auth_line else {}
+    if auth_message.get("command") != "authenticated":
+        return 1
+    if pending:
+        for line in pending.splitlines():
+            if line:
+                commands.put(json.loads(line.decode("utf-8")))
+    threading.Thread(target=read_commands, daemon=True).start()
+    send({"event": "ready"})
+    try:
+        while True:
+            if process is not None and process.poll() is not None:
+                send({"event": "exited", "code": process.returncode})
+                process = None
+            try:
+                command = commands.get(timeout=0.2)
+            except queue.Empty:
+                continue
+            action = command.get("command")
+            if action == "start":
+                if process is not None and process.poll() is None:
+                    send({"event": "error", "message": "sing-box is already running"})
+                    continue
+                try:
+                    process = subprocess.Popen(
+                        [str(SING_BOX), "run", "-c", str(command["config"])],
+                        cwd=str(APP_DIR),
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        stdin=subprocess.DEVNULL,
+                        text=True,
+                        encoding="utf-8",
+                        errors="replace",
+                        bufsize=1,
+                        creationflags=singbox_creationflags(),
+                        startupinfo=singbox_startupinfo(),
+                    )
+                    threading.Thread(target=stream_logs, args=(process,), daemon=True).start()
+                    send({"event": "started", "pid": process.pid})
+                except Exception as error:
+                    process = None
+                    send({"event": "error", "message": str(error)})
+            elif action == "stop":
+                if process is not None and process.poll() is None:
+                    stop_singbox_process(process)
+                code = process.returncode if process is not None else 0
+                send({"event": "exited", "code": code})
+                process = None
+            elif action == "shutdown":
+                break
+    finally:
+        if process is not None and process.poll() is None:
+            try:
+                stop_singbox_process(process)
+            except Exception:
+                process.kill()
+        try:
+            sock.close()
+        except Exception:
+            pass
+    return 0
 
 
 def set_windows_app_id():

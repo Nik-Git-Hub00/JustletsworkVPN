@@ -10,7 +10,7 @@ if [[ -z "$release_arch" ]]; then
 fi
 
 app_path="dist/WorkVPN.app"
-background_path="build_tools/dmg/background_dmg_panels.png"
+background_path="build_tools/dmg/background_dmg_panels.tiff"
 release_dir="release"
 dmg_name="WorkVPN-${release_arch}.dmg"
 stage_dir="build/dmg-${release_arch}"
@@ -32,7 +32,7 @@ rm -rf "$stage_dir" "$rw_dmg" "$final_dmg"
 mkdir -p "$stage_dir/.background"
 
 cp -R "$app_path" "$stage_dir/WorkVPN.app"
-cp "$background_path" "$stage_dir/.background/background.png"
+cp "$background_path" "$stage_dir/.background/background.tiff"
 ln -s /Applications "$stage_dir/Applications"
 
 hdiutil create \
@@ -67,10 +67,10 @@ osascript <<OSA >/dev/null
      set the bounds of container window to {100, 100, 720, 520}
      set viewOptions to the icon view options of container window
      set arrangement of viewOptions to not arranged
-     set icon size of viewOptions to 104
-     set background picture of viewOptions to file ".background:background.png"
-     set position of item "WorkVPN.app" of container window to {139, 215}
-     set position of item "Applications" of container window to {471, 215}
+     set icon size of viewOptions to 92
+     set background picture of viewOptions to file ".background:background.tiff"
+     set position of item "WorkVPN.app" of container window to {130, 215}
+     set position of item "Applications" of container window to {475, 215}
      close
      open
      update without registering applications

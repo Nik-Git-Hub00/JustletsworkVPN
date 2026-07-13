@@ -21,8 +21,14 @@ case "$(uname -m)" in
 esac
 
 base_python="${PYTHON:-python3}"
-venv_dir="venv"
+venv_dir=".venv/${release_arch}"
 python_bin="${venv_dir}/bin/python"
+
+"$base_python" - <<'PYVER'
+import sys
+if sys.version_info < (3, 11):
+    raise SystemExit("Python 3.11+ is required")
+PYVER
 
 create_venv() {
   local log_file="/tmp/workvpn-venv-error.log"
@@ -52,14 +58,25 @@ create_venv() {
 }
 
 if [[ ! -x "$python_bin" ]]; then
-  "$base_python" - <<'PYVER'
-import sys
-if sys.version_info < (3, 11):
-    raise SystemExit("Python 3.11+ is required")
-PYVER
   rm -rf "$venv_dir"
   create_venv
 fi
+
+"$python_bin" - <<'PYVER'
+import sys
+if sys.version_info < (3, 11):
+    raise SystemExit("Python 3.11+ is required in the virtual environment")
+PYVER
+
+venv_arch="$("$python_bin" -c 'import platform; print(platform.machine().lower())')"
+case "${release_arch}:${venv_arch}" in
+  linux-amd64:x86_64|linux-amd64:amd64|linux-arm64:aarch64|linux-arm64:arm64) ;;
+  *)
+    echo "Virtual environment architecture mismatch: expected ${release_arch#linux-}, found $venv_arch" >&2
+    echo "Remove $venv_dir and run the build again." >&2
+    exit 64
+    ;;
+esac
 
 "$python_bin" -m pip install --upgrade pip
 "$python_bin" -m pip install -r requirements.txt

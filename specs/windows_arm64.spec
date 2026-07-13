@@ -21,6 +21,15 @@ a = Analysis(
     ],
     datas=[
         (str(ROOT / 'assets/vpn_icon.ico'), '.'),
+        (str(ROOT / 'assets/windows_icon_16.png'), 'assets'),
+        (str(ROOT / 'assets/windows_icon_20.png'), 'assets'),
+        (str(ROOT / 'assets/windows_icon_24.png'), 'assets'),
+        (str(ROOT / 'assets/windows_icon_32.png'), 'assets'),
+        (str(ROOT / 'assets/windows_icon_40.png'), 'assets'),
+        (str(ROOT / 'assets/windows_icon_48.png'), 'assets'),
+        (str(ROOT / 'assets/windows_icon_64.png'), 'assets'),
+        (str(ROOT / 'assets/windows_icon_128.png'), 'assets'),
+        (str(ROOT / 'assets/windows_icon_256.png'), 'assets'),
         (str(ROOT / 'assets/workvpn_icon_imagegen_source.png'), 'assets'),
         (str(ROOT / 'assets/workvpn_icon_tile_source.png'), 'assets'),
         (str(ROOT / 'assets/ui_token.png'), 'assets'),
@@ -74,5 +83,5 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon=str(ROOT / 'assets/vpn_icon.ico'),
-    uac_admin=True,
+    uac_admin=False,
 )

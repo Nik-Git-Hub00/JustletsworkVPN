@@ -64,13 +64,13 @@ Manual fetch commands:
 
 Use Python 3.11 or newer. The current local builds were tested with Python 3.14, but the scripts do not require exactly 3.14.
 
-The build scripts create `venv` automatically and install `requirements.txt` on each run. If you need a specific Python binary, pass it through `PYTHON`:
+The build scripts create architecture-specific environments under `.venv/` automatically and install `requirements.txt` on each run. If you need a specific Python binary, pass it through `PYTHON`:
 
 ```bash
 PYTHON=/path/to/python3 ./scripts/build_macos.sh
 ```
 
-For Intel macOS builds from Apple Silicon, the script creates `venv-intel` through Rosetta/`arch -x86_64` and downloads the Intel `sing-box` automatically.
+For Intel macOS builds from Apple Silicon, the same script runs the selected Python environment through Rosetta/`arch -x86_64` and downloads the Intel `sing-box` automatically.
 
 The macOS and Windows interfaces use PySide6. Qt handles logical pixels and native DPI scaling, so the same layouts are used on Full HD, QHD, 4K, and Retina displays.
 
@@ -83,15 +83,16 @@ macOS and Windows builds can also embed the GitHub repository used for update ch
 macOS:
 
 ```bash
-./scripts/build_macos.sh                 # native build: ARM on Apple Silicon, Intel on Intel Mac
-./scripts/build_macos_intel_from_arm.sh  # Intel build from Apple Silicon via Rosetta
+./scripts/build_macos.sh native  # current Mac architecture (default when omitted)
+./scripts/build_macos.sh arm64   # Apple Silicon build
+./scripts/build_macos.sh x64     # Intel build; uses Rosetta on Apple Silicon
 ```
 
 macOS manual build with explicit version and update repository:
 
 ```bash
-APP_VERSION=1.0.0 APP_UPDATE_REPO=owner/repo ./scripts/build_macos.sh
-APP_VERSION=1.0.0 APP_UPDATE_REPO=owner/repo ./scripts/build_macos_intel_from_arm.sh
+APP_VERSION=1.0.0 APP_UPDATE_REPO=owner/repo ./scripts/build_macos.sh arm64
+APP_VERSION=1.0.0 APP_UPDATE_REPO=owner/repo ./scripts/build_macos.sh x64
 ```
 
 Linux native architecture:
@@ -101,16 +102,17 @@ Linux native architecture:
 ./scripts/package_linux.sh
 ```
 
-Windows x64:
+Windows native Python architecture:
 
 ```powershell
 ./scripts/build_windows.ps1
 ```
 
-Windows ARM64:
+Windows x64 or ARM64 explicitly:
 
 ```powershell
-./scripts/build_windows_arm64.ps1
+./scripts/build_windows.ps1 -Architecture amd64
+./scripts/build_windows.ps1 -Architecture arm64
 ```
 
 Windows manual build with explicit version and update repository:
@@ -118,14 +120,10 @@ Windows manual build with explicit version and update repository:
 ```powershell
 $env:APP_VERSION = "1.0.0"
 $env:APP_UPDATE_REPO = "owner/repo"
-./scripts/build_windows.ps1
+./scripts/build_windows.ps1 -Architecture amd64
 ```
 
-For Windows ARM64, use the same environment variables and run:
-
-```powershell
-./scripts/build_windows_arm64.ps1
-```
+PyInstaller requires Python matching the requested Windows architecture. An ARM64 build therefore needs ARM64 Python, such as the one installed by the `windows-11-arm` GitHub runner; the script stops instead of producing a mixed-architecture executable.
 
 For manual Windows setup installer builds, install Inno Setup 6 first. Without it, the scripts still build the portable zip/onefile exe and skip the setup `.exe`.
 
